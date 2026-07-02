@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>prnlb-browser — Pornolab Scraper</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>prnlb-browser</h1>
+    <p class="subtitle">Pornolab.net forum scraper</p>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="config">⚙️ Config</button>
+      <button class="tab" data-tab="crawl">🚀 Crawl</button>
+      <button class="tab" data-tab="results">📊 Results</button>
+      <button class="tab" data-tab="search">🔍 Search</button>
+    </div>
+
+    <!-- Config Tab -->
+    <section id="tab-config" class="tab-content active">
+      <div class="card">
+        <h2>Credentials</h2>
+        <div class="form-row">
+          <label>Username</label>
+          <input type="text" id="cfg-username" placeholder="user@example.com" />
+        </div>
+        <div class="form-row">
+          <label>Password</label>
+          <input type="password" id="cfg-password" placeholder="••••••" />
+        </div>
+      </div>
+      <div class="card">
+        <h2>Forums</h2>
+        <div id="forums-list"></div>
+        <button id="btn-add-forum" class="btn btn-small">+ Add forum</button>
+      </div>
+      <div class="card">
+        <h2>Settings</h2>
+        <div class="form-row">
+          <label>Pages to scan</label>
+          <input type="number" id="cfg-pages" min="1" max="100" value="2" />
+        </div>
+        <div class="form-row">
+          <label>Headless</label>
+          <label class="toggle">
+            <input type="checkbox" id="cfg-headless" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Output file</label>
+          <input type="text" id="cfg-output" value="output.json" />
+        </div>
+      </div>
+      <div class="card">
+        <h2>Favorite Actresses</h2>
+        <div id="fav-actresses-list"></div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+          <input type="text" id="fav-actress-input" placeholder="Add actress name..." style="flex:1" />
+          <button id="btn-add-actress" class="btn btn-small">+ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Request Delay (ms)</h2>
+        <div class="form-row">
+          <label>Min delay</label>
+          <input type="number" id="cfg-delay-min" min="500" max="30000" value="2000" />
+        </div>
+        <div class="form-row">
+          <label>Max delay</label>
+          <input type="number" id="cfg-delay-max" min="500" max="30000" value="5000" />
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btn-save-config" class="btn btn-primary">💾 Save Config</button>
+        <button id="btn-clear-db" class="btn btn-danger">🗑 Clear Database</button>
+        <span id="config-status" class="status-msg"></span>
+      </div>
+    </section>
+
+    <!-- Crawl Tab -->
+    <section id="tab-crawl" class="tab-content">
+      <div class="card">
+        <h2>Controls</h2>
+        <div class="actions">
+          <button id="btn-start" class="btn btn-primary btn-large">▶ Start Crawl</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Progress</h2>
+        <div id="progress-bar-container" class="progress-bar-container" hidden>
+          <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+        </div>
+        <pre id="progress-log" class="log-output">Waiting...</pre>
+      </div>
+    </section>
+
+    <!-- Results Tab -->
+    <section id="tab-results" class="tab-content">
+      <div class="card">
+        <div class="actions">
+          <input type="text" id="search-input" placeholder="Search topics..." style="flex: 1; max-width: 400px" />
+          <button id="btn-refresh-results" class="btn btn-small">🔄 Refresh</button>
+          <label class="filter-toggle">
+            <select id="filter-forum">
+              <option value="">All forums</option>
+            </select>
+          </label>
+          <label class="filter-toggle">
+            <select id="filter-actress">
+              <option value="">All actresses</option>
+              <option value="fav">★ Fav actresses</option>
+            </select>
+          </label>
+          <label class="filter-toggle">
+            <select id="filter-hidden">
+              <option value="exclude">Exclude hidden</option>
+              <option value="all">Show all</option>
+            </select>
+          </label>
+          <span id="result-count" class="status-msg"></span>
+        </div>
+      </div>
+      <div id="results-container" class="results-grid"></div>
+    </section>
+
+    <!-- Search Tab -->
+    <section id="tab-search" class="tab-content">
+      <div class="card">
+        <h2>Search Pornolab Tracker</h2>
+        <div class="search-controls">
+          <div class="search-row">
+            <input type="text" id="search-query" placeholder="Search phrase..." style="flex: 1" />
+            <button id="btn-search" class="btn btn-primary">🔍 Search</button>
+          </div>
+          <div class="search-row" style="margin-top: 0.5rem">
+            <label class="filter-toggle" style="flex: 1">
+              <select id="search-forum-filter" multiple size="3" style="width: 100%; min-height: 80px">
+                <option value="-1" selected>Everywhere</option>
+              </select>
+            </label>
+          </div>
+          <div id="search-status" class="status-msg" style="margin-top: 0.5rem"></div>
+          <div id="search-progress" hidden>
+            <div class="progress-bar-container" style="margin-top: 0.5rem">
+              <div id="search-progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <pre id="search-progress-log" class="log-output" style="max-height: 150px; margin-top: 0.5rem"></pre>
+          </div>
+        </div>
+      </div>
+      <div id="search-results-container" class="results-grid"></div>
+      <div id="search-pagination" class="search-pagination"></div>
+    </section>
+  </div>
+
+  <!-- Image Carousel Modal -->
+  <div id="image-modal" class="modal-overlay" hidden>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="modal-title" class="modal-title">Images</span>
+        <button id="modal-close" class="btn btn-small modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="carousel-container">
+          <button id="carousel-prev" class="carousel-btn carousel-btn-prev">‹</button>
+          <div class="carousel-viewport">
+            <img id="carousel-image" class="carousel-image" src="" alt="Loading..." />
+            <div id="carousel-loading" class="carousel-loading">
+              <div id="carousel-progress-text">Loading images...</div>
+              <div id="carousel-progress-bar-container" class="carousel-progress-bar-container">
+                <div id="carousel-progress-bar" class="carousel-progress-bar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          <button id="carousel-next" class="carousel-btn carousel-btn-next">›</button>
+        </div>
+        <div class="carousel-thumbnails" id="carousel-thumbnails"></div>
+      </div>
+      <div class="modal-footer">
+        <span id="carousel-counter" class="carousel-counter"></span>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "credentials": {
+    "username": "",
+    "password": ""
+  },
+  "forums": [
+    {
+      "url": "https://pornolab.net/forum/viewforum.php?f=1878",
+      "label": " Сайтрипы с русскими актрисами 2026 (HD Video) / Russian SiteRip's 2026 (HD Video)"
+    },
+    {
+      "url": "https://pornolab.net/forum/viewforum.php?f=1875",
+      "label": " Сайтрипы 2026 (HD Video) / SiteRip's 2026 (HD Video)"
+    }
+  ],
+  "pagesToScan": 2,
+  "headless": true,
+  "outputFile": "output.json",
+  "delay": {
+    "min": 2000,
+    "max": 5000
+  },
+  "dbPath": "data.db",
+  "favActresses": []
+}

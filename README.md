@@ -1,1 +1,86 @@
 # prnlb-browser
+
+> **Your smart browser toolbox for pornolab.net** — crawl, search, and organize forum topics with ease.
+
+---
+
+## 📸 At a Glance
+
+<p float="left">
+  <img src=".github/assets/search.png" width="45%" alt="Search results" />
+  <img src=".github/assets/screens.png" width="45%" alt="Screenshots tool" />
+</p>
+<p float="left">
+  <img src=".github/assets/results.png" width="45%" alt="Results browser" />
+  <img src=".github/assets/crawl.png" width="45%" alt="Live crawl progress" />  
+</p>
+<p float="left">
+  <img src=".github/assets/favorite-00.png" width="45%" alt="Favorites view" />
+  <img src=".github/assets/favorite-01.png" width="45%" alt="Favorites detail" />
+</p>
+<p float="left">
+  <img src=".github/assets/config.png" width="45%" alt="Configuration screen" />
+</p>
+
+---
+
+## ✨ Features
+
+- **🔍 Smart Crawler** — Automatically browse forums, collect topics, and extract rich metadata (title, cast, duration, file size, torrent links, and more)
+- **🔎 Full‑Text Search** — Quickly find topics across your entire database
+- **📂 Results Browser** — Browse everything with images, metadata, and torrent links in a clean web interface
+- **❤️ Favorites** — Save and organize your favorite topics for quick access
+- **📸 Screenshot Tool** — Capture and review topic previews without leaving the app
+- **🧠 Deduplication** — Safe to re‑run: already‑scraped topics are skipped automatically
+- **🖥️ Desktop App** — Native macOS / Windows / Linux builds available (powered by Electron)
+
+---
+
+## 🚀 Quick Start
+
+```bash
+npm install
+npm run build-and-serve
+```
+
+Open **http://localhost:3000** in your browser. That's it.
+
+> Set a custom port: `PORT=8080 npm run server`
+
+---
+
+## 🛠️ Build & Run
+
+```bash
+npm install              # install dependencies
+npm run build            # compile TypeScript → dist/
+
+# Web UI (recommended)
+npm run server           # start web server on http://localhost:3000
+
+# CLI (headless scraper)
+npm start                # run scraper from terminal
+
+# Desktop app (Electron)
+npm run electron         # development mode
+npm run dist:full        # build distributable for current platform
+```
+
+---
+
+## ❤️ Support
+
+If you find this tool useful, consider supporting the project:
+
+```
+BTC  — bc1q7q0536ctrllvf7sp0ghlw2evwz75jn7x7nzc79
+ETH  — 0x87c7CB3d62Bc70A19638A01064B2028fB89E37BF
+```
+
+---
+
+## ⚠️ Disclaimer
+
+This is an **unofficial third‑party tool** and is not affiliated with, endorsed by, or connected to pornolab.net in any way. The author is not responsible for how you use this software.
+
+**No telemetry, no tracking.** The app does not collect any usage metrics, analytics, or personal data. All scraped information is stored **locally** on your machine and never leaves it. Your credentials and database stay entirely under your control.

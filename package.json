@@ -1,0 +1,105 @@
+{
+  "name": "prnlb-browser",
+  "version": "1.0.0",
+  "description": "Playwright script for parsing pornolab.net forum topics",
+  "main": "dist/src/electron.js",
+  "scripts": {
+    "build": "tsc",
+    "install-browsers": "node scripts/install-browsers.js",
+    "start": "node dist/src/cli.js",
+    "server": "node dist/src/server.js",
+    "build-and-run": "npm run build && npm start",
+    "build-and-serve": "npm run build && npm run server",
+    "electron": "npm run build && electron dist/src/electron.js",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:full": "npm run install-browsers && npm run dist",
+    "dist:win:full": "npm run install-browsers -- --platform=win32 && npm run dist:win",
+    "dist:mac:full": "npm run install-browsers && npm run dist:mac",
+    "dist:linux:full": "npm run install-browsers -- --platform=linux && npm run dist:linux"
+  },
+  "build": {
+    "appId": "com.prnlb.browser",
+    "productName": "prnlb-browser",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/src/**/*",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "config.json",
+        "to": "config.json"
+      },
+      {
+        "from": "browsers",
+        "to": "browsers",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities",
+      "icon": null,
+      "hardenedRuntime": true,
+      "artifactName": "${productName}-${version}-mac.${ext}"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": null,
+      "artifactName": "${productName}-${version}-win.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "zip"
+      ],
+      "category": "Utility",
+      "icon": null,
+      "artifactName": "${productName}-${version}-linux.${ext}"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.6",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.0.1",
+    "electron": "^42.5.1",
+    "electron-builder": "^26.15.3",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "playwright-core": "^1.61.1"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}
