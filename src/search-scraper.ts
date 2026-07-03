@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import type { Config, TopicData, CrawlProgress } from "./types.js";
 import { launchChromium } from "./browser.js";
+import { handleCaptchaIfPresent } from "./captcha-handler.js";
 
 // --- Helpers ---
 
@@ -74,8 +75,10 @@ async function closeSharedBrowser(): Promise<void> {
 
 // --- Login helper ---
 
-async function ensureLoggedIn(page: Page, config: Config): Promise<void> {
+async function ensureLoggedIn(page: Page, config: Config, onProgress?: (p: CrawlProgress) => void): Promise<void> {
   if (loggedIn) return;
+
+  const emit = (p: CrawlProgress) => { if (onProgress) onProgress(p); };
 
   await page.goto("https://pornolab.net/forum/tracker.php", {
     waitUntil: "domcontentloaded",
@@ -91,36 +94,105 @@ async function ensureLoggedIn(page: Page, config: Config): Promise<void> {
   }
 
   // Need to login
+  emit({ phase: "login", message: "Opening login page..." });
   await page.goto("https://pornolab.net/forum/login.php", {
     waitUntil: "domcontentloaded",
     timeout: 30_000,
   });
   await sleep(1000);
 
-  await page
-    .locator('form[action="login.php"] input[name="login_username"]')
-    .fill(config.credentials.username);
-  await page
-    .locator('form[action="login.php"] input[name="login_password"]')
-    .fill(config.credentials.password);
+  // Retry loop — allows captcha to be entered again if code was wrong
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Check for captcha first (may appear on page reload after wrong code)
+    const hasCaptcha = (await page.locator('img[src*="captcha"]').count()) > 0;
+    if (hasCaptcha) {
+      emit({ phase: "login", message: `Captcha challenge (attempt ${attempt})...` });
+      const captchaHandled = await handleCaptchaIfPresent(page, (info) => {
+        emit({
+          phase: "captcha-needed",
+          message: "CAPTCHA required — please enter the code from the image",
+          captcha: info,
+        });
+      });
+      if (!captchaHandled) {
+        throw new Error("Captcha handling failed — could not find or submit captcha");
+      }
+    } else {
+      // Verify the login form fields exist before trying to fill them
+      const usernameField = page.locator('form[action="login.php"] input[name="login_username"]');
+      const passwordField = page.locator('form[action="login.php"] input[name="login_password"]');
 
-  await Promise.all([
-    page.waitForURL("**/index.php", { timeout: 15_000 }).catch(() => {}),
-    page
-      .locator('form[action="login.php"] input[name="login"]')
-      .click(),
-  ]);
-  await sleep(2000);
+      if ((await usernameField.count()) === 0 || (await passwordField.count()) === 0) {
+        // Login form fields not found — page may have changed (captcha with different markup,
+        // blocked IP, etc.). Take a screenshot for debugging and re-check for captcha.
+        console.warn(`Attempt ${attempt}: login form fields not found on page ${page.url()}`);
 
-  loggedIn = true;
+        // Re-check captcha with broader selectors
+        const broadCaptcha =
+          (await page.locator('img[src*="captcha"]').count()) > 0 ||
+          (await page.locator('img[src*="capcha"]').count()) > 0 ||
+          (await page.locator('input[name*="captcha"], input[name*="cap_code"]').count()) > 0;
+        if (broadCaptcha) {
+          // Found captcha with alternate selectors — go back to top of loop
+          continue;
+        }
+
+        // Nothing we recognize — throw with page URL for debugging
+        throw new Error(
+          `Login form fields not found on ${page.url()} — the page may require captcha or have an unexpected layout`,
+        );
+      }
+
+      // No captcha — fill credentials and submit
+      emit({ phase: "login", message: `Filling credentials (attempt ${attempt})...` });
+      try {
+        await usernameField.fill(config.credentials.username);
+        await passwordField.fill(config.credentials.password);
+
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15_000 }).catch(() => {}),
+          page
+            .locator('form[action="login.php"] input[name="login"]')
+            .click(),
+        ]);
+        await sleep(2000);
+      } catch (err: any) {
+        console.warn(`Attempt ${attempt}: credential fill/submit failed: ${err.message}`);
+        // The page may have changed (e.g. captcha appeared mid-attempt). Re-check on next iteration.
+        await sleep(1000);
+        continue;
+      }
+    }
+
+    // Verify login succeeded: either we're on index.php or username link exists
+    const url = page.url();
+    const hasUserLink = (await page.locator(`a:has-text("${config.credentials.username}")`).count()) > 0;
+    const onIndex = url.includes("index.php");
+
+    if (hasUserLink || onIndex) {
+      emit({ phase: "login", message: "Login successful!" });
+      loggedIn = true;
+      return;
+    }
+
+    // Check if we're still on the login page (wrong captcha, etc.)
+    const stillOnLogin = page.locator('form[action="login.php"]');
+    if ((await stillOnLogin.count()) > 0 && attempt < maxAttempts) {
+      emit({ phase: "login", message: `Login attempt ${attempt} failed, retrying...` });
+      continue;
+    }
+  }
+
+  throw new Error("Login failed after maximum attempts — check credentials and captcha");
 }
 
 // --- Fetch forum options from tracker page ---
 
-export async function fetchForumOptions(config: Config): Promise<ForumOption[]> {
+export async function fetchForumOptions(config: Config, onProgress?: (p: CrawlProgress) => void): Promise<ForumOption[]> {
   const { page } = await getBrowserContext(config);
   try {
-    await ensureLoggedIn(page, config);
+    await ensureLoggedIn(page, config, onProgress);
     await page.goto("https://pornolab.net/forum/tracker.php", {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
@@ -160,7 +232,7 @@ export async function searchPornolab(
   try {
     // Login
     emit({ phase: "login", message: "Authenticating..." });
-    await ensureLoggedIn(page, config);
+    await ensureLoggedIn(page, config, onProgress);
 
     // Navigate to tracker
     emit({ phase: "listing", message: "Opening search page..." });
@@ -404,10 +476,11 @@ export async function searchPornolab(
 export async function fetchTopicDetails(
   topicUrl: string,
   config: Config,
+  onProgress?: (p: CrawlProgress) => void,
 ): Promise<{ postImage: string | null; starring: string | null; productionDate: string | null; duration: string | null }> {
   const { page } = await getBrowserContext(config);
   try {
-    await ensureLoggedIn(page, config);
+    await ensureLoggedIn(page, config, onProgress);
 
     let url = topicUrl;
     if (!url.startsWith("http")) {

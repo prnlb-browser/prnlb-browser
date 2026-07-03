@@ -521,6 +521,16 @@ input:focus { border-color: var(--accent); }
   color: var(--text-muted);
 }
 
+/* --- Captcha Modal --- */
+.captcha-image {
+  max-width: 300px;
+  max-height: 120px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 4px;
+}
+
 /* --- Search --- */
 .search-controls {
   display: flex;

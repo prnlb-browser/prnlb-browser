@@ -186,6 +186,25 @@
     </div>
   </div>
 
+  <!-- Captcha Modal -->
+  <div id="captcha-modal" class="modal-overlay" hidden>
+    <div class="modal-content" style="max-width: 420px">
+      <div class="modal-header">
+        <span class="modal-title">🔐 CAPTCHA Required</span>
+        <button id="captcha-modal-close" class="btn btn-small modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body" style="text-align: center">
+        <p style="margin-bottom: 1rem; color: #aaa;">Enter the code shown in the image below:</p>
+        <img id="captcha-image" class="captcha-image" src="" alt="CAPTCHA" />
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center">
+          <input type="text" id="captcha-code-input" placeholder="Enter code..." style="flex: 1; max-width: 220px; font-size: 1.1rem; text-align: center; letter-spacing: 0.2em;" autocomplete="off" />
+          <button id="captcha-submit" class="btn btn-primary">Submit</button>
+        </div>
+        <div id="captcha-status" class="status-msg" style="margin-top: 0.5rem"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

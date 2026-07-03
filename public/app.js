@@ -64,6 +64,78 @@ const searchProgressBar = document.getElementById("search-progress-bar");
 const searchProgressLog = document.getElementById("search-progress-log");
 const searchResultsContainer = document.getElementById("search-results-container");
 
+// Captcha DOM refs
+const captchaModal = document.getElementById("captcha-modal");
+const captchaModalClose = document.getElementById("captcha-modal-close");
+const captchaImage = document.getElementById("captcha-image");
+const captchaCodeInput = document.getElementById("captcha-code-input");
+const captchaSubmit = document.getElementById("captcha-submit");
+const captchaStatus = document.getElementById("captcha-status");
+
+// --- Captcha Modal ---
+
+function showCaptchaModal(imageBase64) {
+  captchaImage.src = imageBase64;
+  captchaCodeInput.value = "";
+  captchaStatus.textContent = "";
+  captchaModal.hidden = false;
+  setTimeout(() => captchaCodeInput.focus(), 100);
+}
+
+function closeCaptchaModal() {
+  captchaModal.hidden = true;
+  captchaImage.src = "";
+  captchaCodeInput.value = "";
+  captchaStatus.textContent = "";
+}
+
+captchaModalClose.addEventListener("click", closeCaptchaModal);
+captchaModal.addEventListener("click", (e) => {
+  if (e.target === captchaModal) closeCaptchaModal();
+});
+
+async function submitCaptchaCode() {
+  const code = captchaCodeInput.value.trim();
+  if (!code) {
+    captchaStatus.textContent = "Please enter the captcha code";
+    captchaStatus.style.color = "#ff6b6b";
+    return;
+  }
+
+  captchaStatus.textContent = "Submitting...";
+  captchaStatus.style.color = "#aaa";
+  captchaSubmit.disabled = true;
+
+  try {
+    const res = await fetch("/api/captcha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ captchaId: captchaActiveId, code }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      captchaStatus.textContent = "Code submitted! Waiting for login...";
+      captchaStatus.style.color = "#51cf66";
+      setTimeout(() => closeCaptchaModal(), 1500);
+    } else {
+      captchaStatus.textContent = "Failed to submit code — challenge expired";
+      captchaStatus.style.color = "#ff6b6b";
+    }
+  } catch (err) {
+    captchaStatus.textContent = `Error: ${err.message}`;
+    captchaStatus.style.color = "#ff6b6b";
+  } finally {
+    captchaSubmit.disabled = false;
+  }
+}
+
+captchaSubmit.addEventListener("click", submitCaptchaCode);
+captchaCodeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitCaptchaCode();
+});
+
+let captchaActiveId = null;
+
 // --- Tabs ---
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -242,6 +314,10 @@ function connectSSE() {
       progressBar.style.width = pct + "%";
       const name = p.message.length > 70 ? p.message.substring(0, 70) + "..." : p.message;
       appendLog(`🔍 [${p.current}/${p.total}] ${name}`);
+    } else if (p.phase === "captcha-needed" && p.captcha) {
+      captchaActiveId = p.captcha.captchaId;
+      appendLog(`\n⚠️ ${p.message}`);
+      showCaptchaModal(p.captcha.imageBase64);
     } else if (p.phase === "done") {
       appendLog(`\n✅ ${p.message}`);
       progressBar.style.width = "100%";
@@ -614,8 +690,45 @@ async function loadSearchForumOptions() {
   try {
     const res = await fetch("/api/search/forums");
     if (!res.ok) return;
-    const forums = await res.json();
-    if (!Array.isArray(forums)) return;
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let forums = null;
+
+    function processLines(text) {
+      for (const line of text.split("\n")) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.phase === "captcha-needed" && data.captcha) {
+            captchaActiveId = data.captcha.captchaId;
+            showCaptchaModal(data.captcha.imageBase64);
+          } else if (data.phase === "result") {
+            forums = data.data;
+            return true;
+          } else if (data.phase === "error") {
+            console.error("Forum options error:", data.message);
+            return true;
+          }
+        } catch {}
+      }
+      return false;
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        if (buffer.trim()) processLines(buffer);
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      if (processLines(lines.join("\n"))) break;
+    }
+
+    if (!forums || !Array.isArray(forums)) return;
     searchForumOptions = forums;
     // Populate the multi-select
     searchForumFilter.innerHTML = "";
@@ -684,6 +797,11 @@ async function performSearch(start = 0) {
           if (data.phase === "login" || data.phase === "listing") {
             searchProgressLog.textContent += `${data.message}\n`;
             searchProgressLog.scrollTop = searchProgressLog.scrollHeight;
+          } else if (data.phase === "captcha-needed" && data.captcha) {
+            captchaActiveId = data.captcha.captchaId;
+            searchProgressLog.textContent += `\n⚠️ ${data.message}\n`;
+            searchProgressLog.scrollTop = searchProgressLog.scrollHeight;
+            showCaptchaModal(data.captcha.imageBase64);
           } else if (data.phase === "detail") {
             searchProgressLog.textContent += `${data.message}\n`;
             searchProgressLog.scrollTop = searchProgressLog.scrollHeight;
@@ -856,7 +974,46 @@ async function loadSearchDetails() {
       const res = await fetch(`/api/topic/details?url=${encodeURIComponent(topicUrl)}`);
       if (!res.ok) return;
       if (generation !== searchDetailGeneration) return;
-      const details = await res.json();
+
+      // Parse SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let details = null;
+
+      function processLines(text) {
+        for (const line of text.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.phase === "captcha-needed" && data.captcha) {
+              captchaActiveId = data.captcha.captchaId;
+              showCaptchaModal(data.captcha.imageBase64);
+            } else if (data.phase === "result") {
+              details = data.data;
+              return true;
+            } else if (data.phase === "error") {
+              return true;
+            }
+          } catch {}
+        }
+        return false;
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buf.trim()) processLines(buf);
+          break;
+        }
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        if (processLines(lines.join("\n"))) break;
+      }
+
+      if (!details) return;
+      if (generation !== searchDetailGeneration) return;
 
       // Update thumbnail
       const thumbContainer = card.querySelector(".result-thumb-container");

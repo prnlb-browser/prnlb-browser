@@ -7,6 +7,7 @@ import type { Config, TopicData, CrawlProgress } from "./types.js";
 import { resolverRegistry } from "./resolvers/registry.js";
 import { scrapeTopicImages } from "./resolvers/topic-scraper.js";
 import { searchPornolab, fetchForumOptions, fetchTopicDetails } from "./search-scraper.js";
+import { submitCaptchaCode } from "./captcha-handler.js";
 
 // --- State ---
 
@@ -319,7 +320,7 @@ async function handleRequest(
       return;
     }
 
-    // GET /api/topic/details?url=... — fetch post image + metadata from a topic page
+    // GET /api/topic/details?url=... — fetch post image + metadata from a topic page (SSE stream)
     if (url.pathname === "/api/topic/details" && method === "GET") {
       const topicUrl = url.searchParams.get("url");
       if (!topicUrl) {
@@ -327,24 +328,67 @@ async function handleRequest(
         return;
       }
       const config = currentConfig ?? loadConfig();
+
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      res.flushHeaders();
+
+      const emit = (data: object) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        // @ts-ignore
+        if (typeof (res as any).flush === "function") (res as any).flush();
+      };
+
       try {
-        const details = await fetchTopicDetails(topicUrl, config);
-        json(res, details);
+        const details = await fetchTopicDetails(topicUrl, config, (p) => emit(p));
+        emit({ phase: "result", data: details });
       } catch (err) {
-        json(res, { error: (err as Error).message }, 500);
+        emit({ phase: "error", message: (err as Error).message });
       }
+      res.end();
       return;
     }
 
-    // GET /api/search/forums — get available forum filters from tracker page
+    // GET /api/search/forums — get available forum filters from tracker page (SSE stream)
     if (url.pathname === "/api/search/forums" && method === "GET") {
       const config = currentConfig ?? loadConfig();
+
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      res.flushHeaders();
+
+      const emit = (data: object) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        // @ts-ignore
+        if (typeof (res as any).flush === "function") (res as any).flush();
+      };
+
       try {
-        const forums = await fetchForumOptions(config);
-        json(res, forums);
+        const forums = await fetchForumOptions(config, (p) => emit(p));
+        emit({ phase: "result", data: forums });
       } catch (err) {
-        json(res, { error: (err as Error).message }, 500);
+        emit({ phase: "error", message: (err as Error).message });
       }
+      res.end();
+      return;
+    }
+
+    // POST /api/captcha — submit captcha code
+    if (url.pathname === "/api/captcha" && method === "POST") {
+      const body = await readBody(req);
+      const { captchaId, code } = JSON.parse(body) as { captchaId: string; code: string };
+      if (!captchaId || !code) {
+        json(res, { error: "captchaId and code are required" }, 400);
+        return;
+      }
+      const ok = submitCaptchaCode(captchaId, code);
+      json(res, { success: ok });
       return;
     }
 

@@ -1,6 +1,7 @@
 import type { Browser, Page } from "playwright-core";
 import type { Config, TopicData, CrawlProgress } from "./types.js";
 import { launchChromium } from "./browser.js";
+import { handleCaptchaIfPresent } from "./captcha-handler.js";
 
 // --- Helpers ---
 
@@ -31,29 +32,61 @@ async function login(
   });
   await sleep(1000);
 
-  onProgress({ phase: "login", message: "Filling credentials..." });
-  await page
-    .locator('form[action="login.php"] input[name="login_username"]')
-    .fill(config.credentials.username);
-  await page
-    .locator('form[action="login.php"] input[name="login_password"]')
-    .fill(config.credentials.password);
+  // Retry loop — allows captcha to be entered again if code was wrong
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Check for captcha first (may appear on page reload after wrong code)
+    const hasCaptcha = (await page.locator('img[src*="captcha"]').count()) > 0;
+    if (hasCaptcha) {
+      onProgress({ phase: "login", message: `Captcha challenge (attempt ${attempt})...` });
+      const captchaHandled = await handleCaptchaIfPresent(page, (info) => {
+        onProgress({
+          phase: "captcha-needed",
+          message: "CAPTCHA required — please enter the code from the image",
+          captcha: info,
+        });
+      });
+      if (!captchaHandled) {
+        throw new Error("Captcha handling failed — could not find or submit captcha");
+      }
+    } else {
+      // No captcha — fill credentials and submit
+      onProgress({ phase: "login", message: `Filling credentials (attempt ${attempt})...` });
+      await page
+        .locator('form[action="login.php"] input[name="login_username"]')
+        .fill(config.credentials.username);
+      await page
+        .locator('form[action="login.php"] input[name="login_password"]')
+        .fill(config.credentials.password);
 
-  await Promise.all([
-    page.waitForURL("**/index.php", { timeout: 15_000 }).catch(() => {}),
-    page
-      .locator('form[action="login.php"] input[name="login"]')
-      .click(),
-  ]);
-  await sleep(2000);
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 15_000 }).catch(() => {}),
+        page
+          .locator('form[action="login.php"] input[name="login"]')
+          .click(),
+      ]);
+      await sleep(2000);
+    }
 
-  const loggedIn = page.locator(
-    `a:has-text("${config.credentials.username}")`,
-  );
-  if ((await loggedIn.count()) === 0) {
-    throw new Error("Login failed — username not found on page after login");
+    // Verify login succeeded
+    const url = page.url();
+    const hasUserLink = (await page.locator(`a:has-text("${config.credentials.username}")`).count()) > 0;
+    const onIndex = url.includes("index.php");
+
+    if (hasUserLink || onIndex) {
+      onProgress({ phase: "login", message: "Login successful!" });
+      return;
+    }
+
+    // Check if we're still on the login page (wrong captcha, etc.)
+    const stillOnLogin = page.locator('form[action="login.php"]');
+    if ((await stillOnLogin.count()) > 0 && attempt < maxAttempts) {
+      onProgress({ phase: "login", message: `Login attempt ${attempt} failed, retrying...` });
+      continue;
+    }
   }
-  onProgress({ phase: "login", message: "Login successful!" });
+
+  throw new Error("Login failed after maximum attempts — check credentials and captcha");
 }
 
 async function collectTopicUrls(

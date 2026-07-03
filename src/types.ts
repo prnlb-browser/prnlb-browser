@@ -23,10 +23,16 @@ export interface TopicData {
 }
 
 export interface CrawlProgress {
-  phase: "login" | "listing" | "detail" | "done" | "error";
+  phase: "login" | "listing" | "detail" | "done" | "error" | "captcha-needed";
   message: string;
   current?: number;
   total?: number;
+  captcha?: CaptchaInfo;
+}
+
+export interface CaptchaInfo {
+  imageBase64: string; // data:image/png;base64,...
+  captchaId: string;
 }
 
 export interface CrawlResult {
