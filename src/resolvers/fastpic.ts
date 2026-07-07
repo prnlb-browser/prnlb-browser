@@ -22,19 +22,21 @@ export class FastpicResolver implements ImageHostResolver {
       const parsed = new URL(url);
       return (
         parsed.hostname.endsWith(".fastpic.org") &&
-        parsed.pathname.includes("/thumb/")
+        /\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(parsed.pathname)
+      ) || (
+        parsed.hostname === "fastpic.org" &&
+        parsed.pathname.includes("/view/")
       );
     } catch {
       return false;
     }
   }
 
-  async resolve(thumbUrl: string): Promise<string | null> {
+  async resolve(url: string): Promise<string | null> {
     try {
-      const viewPageUrl = this.buildViewPageUrl(thumbUrl);
-      if (!viewPageUrl) return null;
-
-      const html = await this.fetchPage(viewPageUrl);
+      // Fetch the page directly — if it's a thumbnail URL, fastpic will
+      // likely 302 redirect us to the view page, which fetchPage now follows.
+      const html = await this.fetchPage(url);
 
       // Look for the full-size image URL in the HTML.
       // The big image URL pattern on fastpic is:
@@ -43,43 +45,7 @@ export class FastpicResolver implements ImageHostResolver {
       const bigUrl = this.extractBigImageUrl(html);
       return bigUrl;
     } catch (err) {
-      console.error(`FastpicResolver: Failed to resolve ${thumbUrl}:`, (err as Error).message);
-      return null;
-    }
-  }
-
-  /**
-   * Build the view page URL from a thumbnail URL.
-   *
-   * Example:
-   *   Thumb: https://i122.fastpic.org/thumb/2023/1001/9d/387ccd6fe21d83ff5f740e7a9b11239d.jpeg
-   *   View:  https://fastpic.org/view/122/2023/1001/387ccd6fe21d83ff5f740e7a9b11239d.jpg.html
-   */
-  private buildViewPageUrl(thumbUrl: string): string | null {
-    try {
-      const parsed = new URL(thumbUrl);
-      const hostname = parsed.hostname; // e.g. "i127.fastpic.org"
-      const hostMatch = hostname.match(/^i(\d+)\.fastpic\.org$/i);
-      if (!hostMatch) return null;
-      const numericId = hostMatch[1]!; // e.g. "127"
-
-      const parts = parsed.pathname.split("/").filter(Boolean);
-      // parts: ["thumb", "2026", "0630", "1a", "filename.jpeg"] — 5 parts
-      // or:    ["thumb", "2026", "0630", "filename.jpeg"] — 4 parts (no hash segment)
-
-      if (parts.length < 4 || parts[0] !== "thumb") return null;
-
-      const year = parts[1]!;
-      const monthDay = parts[2]!;
-
-      // Filename is always the last part
-      const fileName = parts[parts.length - 1]!;
-      // Remove extension, then re-add .jpg for the view page
-      const baseName = fileName.replace(/\.[^.]+$/, "");
-      const viewFileName = `${baseName}.jpg`;
-
-      return `https://fastpic.org/view/${numericId}/${year}/${monthDay}/${viewFileName}.html`;
-    } catch {
+      console.error(`FastpicResolver: Failed to resolve ${url}:`, (err as Error).message);
       return null;
     }
   }
@@ -114,10 +80,15 @@ export class FastpicResolver implements ImageHostResolver {
   }
 
   /**
-   * Fetch a page's HTML content.
+   * Fetch a page's HTML content, following redirects (302, 301, etc.).
    */
-  private fetchPage(url: string): Promise<string> {
+  private fetchPage(url: string, maxRedirects = 5): Promise<string> {
     return new Promise((resolve, reject) => {
+      if (maxRedirects <= 0) {
+        reject(new Error("Too many redirects"));
+        return;
+      }
+
       const parsedUrl = new URL(url);
       const client = parsedUrl.protocol === "https:" ? https : http;
 
@@ -131,6 +102,15 @@ export class FastpicResolver implements ImageHostResolver {
           timeout: 15_000,
         },
         (res) => {
+          // Follow redirects
+          const statusCode = res.statusCode ?? 0;
+          if ([301, 302, 303, 307, 308].includes(statusCode) && res.headers.location) {
+            const redirectUrl = new URL(res.headers.location, url).toString();
+            res.resume(); // drain the response body
+            this.fetchPage(redirectUrl, maxRedirects - 1).then(resolve, reject);
+            return;
+          }
+
           const chunks: Buffer[] = [];
           res.on("data", (chunk: Buffer) => chunks.push(chunk));
           res.on("end", () => {

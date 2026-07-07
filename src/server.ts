@@ -417,22 +417,22 @@ async function handleRequest(
       };
 
       try {
-        // 1. Scrape topic for images
-        const imageUrls = await scrapeTopicImages(topicUrl, (p) => emit(p));
+        // 1. Scrape topic for images (returns thumbnail + resolve URL pairs)
+        const scrapedImages = await scrapeTopicImages(topicUrl, (p) => emit(p));
 
-        // 2. Filter only images that have a resolver
-        const handledUrls = imageUrls.filter((u) => resolverRegistry.findResolver(u));
+        // 2. Filter only images whose resolveUrl has a matching resolver
+        const handledImages = scrapedImages.filter((img) => resolverRegistry.findResolver(img.resolveUrl));
 
-        if (handledUrls.length === 0) {
-          emit({ phase: "done", images: [], total: imageUrls.length, resolved: 0 });
+        if (handledImages.length === 0) {
+          emit({ phase: "done", images: [], total: scrapedImages.length, resolved: 0 });
           res.end();
           return;
         }
 
         // 3. Resolve each image to its full-size version
-        const resolved = await resolverRegistry.resolveImages(handledUrls, (p) => emit(p));
+        const resolved = await resolverRegistry.resolveImages(handledImages, (p) => emit(p));
 
-        emit({ phase: "done", images: resolved, total: imageUrls.length, resolved: resolved.length });
+        emit({ phase: "done", images: resolved, total: scrapedImages.length, resolved: resolved.length });
       } catch (err) {
         emit({ phase: "error", message: (err as Error).message });
       }

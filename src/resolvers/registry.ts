@@ -1,4 +1,4 @@
-import type { ImageHostResolver, ResolvedImage } from "./types.js";
+import type { ImageHostResolver, ResolvedImage, ScrapedImage } from "./types.js";
 import { FastpicResolver } from "./fastpic.js";
 import { ImgboxResolver } from "./imgbox.js";
 
@@ -30,29 +30,31 @@ class ResolverRegistry {
   }
 
   /**
-   * Given a list of image URLs, resolve all that are handled by
+   * Given a list of scraped images, resolve all that are handled by
    * any registered resolver to their full-size versions.
+   * Uses resolveUrl for resolution and passes thumbnailUrl through.
    */
   async resolveImages(
-    urls: string[],
+    images: ScrapedImage[],
     onProgress?: (p: { phase: string; message: string; current: number; total: number }) => void,
   ): Promise<ResolvedImage[]> {
     const results: ResolvedImage[] = [];
-    const total = urls.length;
+    const total = images.length;
 
-    for (let i = 0; i < urls.length; i++) {
-      const url = urls[i]!;
-      const resolver = this.findResolver(url);
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i]!;
+      const resolver = this.findResolver(img.resolveUrl);
       if (!resolver) continue;
 
       if (onProgress) {
         onProgress({ phase: "resolving", message: `Resolving ${i + 1}/${total}...`, current: i + 1, total });
       }
 
-      const resolvedUrl = await resolver.resolve(url);
+      const resolvedUrl = await resolver.resolve(img.resolveUrl);
       if (resolvedUrl) {
         results.push({
-          originalUrl: url,
+          originalUrl: img.resolveUrl,
+          thumbnailUrl: img.thumbnailUrl,
           resolvedUrl,
           resolver: resolver.name,
         });

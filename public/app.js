@@ -624,7 +624,8 @@ function renderCarouselThumbnails() {
   carouselImages.forEach((img, i) => {
     const thumb = document.createElement("img");
     thumb.className = "carousel-thumb" + (i === 0 ? " active" : "");
-    thumb.src = img.originalUrl;
+    // Use thumbnailUrl (the <img src> from the post) for carousel thumbnails
+    thumb.src = img.thumbnailUrl || img.originalUrl;
     thumb.alt = `Thumb ${i + 1}`;
     thumb.loading = "lazy";
     thumb.addEventListener("click", () => showCarouselImage(i));

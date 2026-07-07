@@ -18,7 +18,8 @@
     "dist:full": "npm run install-browsers && npm run dist",
     "dist:win:full": "npm run install-browsers -- --platform=win32 && npm run dist:win",
     "dist:mac:full": "npm run install-browsers && npm run dist:mac",
-    "dist:linux:full": "npm run install-browsers -- --platform=linux && npm run dist:linux"
+    "dist:linux:full": "npm run install-browsers -- --platform=linux && npm run dist:linux",
+    "test": "npx tsx --test test/**/*.test.ts"
   },
   "build": {
     "appId": "com.prnlb.browser",
