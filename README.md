@@ -84,3 +84,22 @@ ETH  — 0x87c7CB3d62Bc70A19638A01064B2028fB89E37BF
 This is an **unofficial third‑party tool** and is not affiliated with, endorsed by, or connected to pornolab.net in any way. The author is not responsible for how you use this software.
 
 **No telemetry, no tracking.** The app does not collect any usage metrics, analytics, or personal data. All scraped information is stored **locally** on your machine and never leaves it. Your credentials and database stay entirely under your control.
+
+---
+
+## 🇷🇺 Сборка и запуск Electron‑приложения
+
+```bash
+# 1. Установить Node.js (если ещё не установлен): https://nodejs.org
+
+# 2. Перейти в папку проекта
+cd prnlb-browser
+
+# 3. Установить зависимости
+npm install
+
+# 4. Собрать дистрибутив для текущей платформы (macOS / Windows / Linux)
+npm run dist:full
+```
+
+Готовый установщик появится в папке `release/`.
