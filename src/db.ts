@@ -78,6 +78,20 @@ export class TopicStore {
     return result.changes;
   }
 
+  /** Delete a single topic by URL */
+  deleteByUrl(topicUrl: string): boolean {
+    const result = this.db.prepare("DELETE FROM topics WHERE topicUrl = ?").run(topicUrl);
+    return result.changes > 0;
+  }
+
+  /** Update topic details (postImage, starring, productionDate, duration) */
+  updateDetails(topicUrl: string, details: { postImage: string | null; starring: string | null; productionDate: string | null; duration: string | null }): boolean {
+    const result = this.db.prepare(
+      "UPDATE topics SET postImage = ?, starring = ?, productionDate = ?, duration = ? WHERE topicUrl = ?"
+    ).run(details.postImage, details.starring, details.productionDate, details.duration, topicUrl);
+    return result.changes > 0;
+  }
+
   /** Get all topics (newest first) */
   getAll(): TopicData[] {
     return this.db.prepare(

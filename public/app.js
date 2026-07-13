@@ -466,6 +466,13 @@ async function loadResults() {
             ${t.size ? `<span><span class="label">Size:</span> <span class="value">${esc(t.size)}</span></span>` : ""}
           </div>
           <div class="result-actions">
+            <div class="result-actions-menu-wrapper">
+              <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
+              <div class="popup-menu" data-popup-menu>
+                <button class="popup-menu-item" data-action="reload-details">🔄 Reload details</button>
+                <button class="popup-menu-item danger" data-action="delete-from-db">🗑 Delete from DB</button>
+              </div>
+            </div>
             ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
             ${t.postImage ? `<button class="btn btn-small" data-action="screens">🖼 Screens</button>` : ""}
             <button class="btn btn-small btn-hide" data-action="hide">${isHidden ? "👁 Show" : "🙈 Hide"}</button>
@@ -518,6 +525,166 @@ resultsContainer.addEventListener("click", async (e) => {
 
   await openImageCarousel(topicUrl, title);
 });
+
+// Event delegation for "⋯" menu button — toggle popup menu
+resultsContainer.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action='menu']");
+  if (!btn) return;
+  e.stopPropagation();
+  // Close any other open menus
+  document.querySelectorAll(".popup-menu.open").forEach((m) => m.classList.remove("open"));
+  const menu = btn.parentElement.querySelector(".popup-menu");
+  if (menu) menu.classList.toggle("open");
+});
+
+// Close popup menus when clicking anywhere else
+document.addEventListener("click", () => {
+  document.querySelectorAll(".popup-menu.open").forEach((m) => m.classList.remove("open"));
+});
+
+// Event delegation for popup menu items
+resultsContainer.addEventListener("click", async (e) => {
+  const item = e.target.closest(".popup-menu-item");
+  if (!item) return;
+  const action = item.dataset.action;
+  const card = item.closest(".result-card");
+  if (!card) return;
+  const topicUrl = card.dataset.url;
+  const title = card.dataset.title || "";
+  if (!topicUrl) return;
+
+  // Close the menu
+  item.closest(".popup-menu")?.classList.remove("open");
+
+  if (action === "reload-details") {
+    await reloadTopicDetails(topicUrl, title, card);
+  } else if (action === "delete-from-db") {
+    await deleteTopicFromDb(topicUrl, card);
+  }
+});
+
+async function reloadTopicDetails(topicUrl, title, card) {
+  if (!confirm(`Reload details for "${title}"?`)) return;
+
+  try {
+    const res = await fetch("/api/results/reload-details", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicUrl }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = JSON.parse(line.slice(6));
+        if (data.phase === "done") {
+          // Update the card's meta fields in-place
+          const infoDiv = card.querySelector(".result-info");
+          if (infoDiv && data.details) {
+            const metaDiv = infoDiv.querySelector(".result-meta");
+            if (metaDiv) {
+              const d = data.details;
+              // Update or add starring
+              updateMetaField(metaDiv, "Cast:", d.starring);
+              // Update or add productionDate
+              updateMetaField(metaDiv, "Date:", d.productionDate);
+              // Update or add duration
+              updateMetaField(metaDiv, "Duration:", d.duration);
+              // Size is preserved automatically since we don't touch it
+            }
+            // Update postImage if it changed
+            if (data.details.postImage) {
+              const thumb = card.querySelector(".result-thumb");
+              if (thumb) {
+                thumb.src = data.details.postImage;
+              } else if (!card.querySelector(".result-thumb")) {
+                // Add a thumbnail if there wasn't one
+                const img = document.createElement("img");
+                img.className = "result-thumb";
+                img.src = data.details.postImage;
+                img.alt = "";
+                img.loading = "lazy";
+                img.onerror = function() { this.style.display = "none"; };
+                card.insertBefore(img, card.querySelector(".result-info"));
+              }
+            }
+          }
+        } else if (data.phase === "error") {
+          alert(`Error: ${data.message}`);
+        }
+      }
+    }
+  } catch (err) {
+    alert(`Failed to reload details: ${err.message}`);
+  }
+}
+
+function updateMetaField(metaDiv, label, value) {
+  // Find existing span with this label
+  const spans = metaDiv.querySelectorAll("span");
+  let found = false;
+  for (const span of spans) {
+    const labelEl = span.querySelector(".label");
+    if (labelEl && labelEl.textContent === label) {
+      if (value) {
+        const valEl = span.querySelector(".value");
+        if (valEl) valEl.textContent = value;
+        found = true;
+      } else {
+        // Remove the span if value is now null
+        span.remove();
+        found = true;
+      }
+      break;
+    }
+  }
+  // If not found and value exists, add it
+  if (!found && value) {
+    const newSpan = document.createElement("span");
+    newSpan.innerHTML = `<span class="label">${label}</span> <span class="value">${esc(value)}</span>`;
+    metaDiv.appendChild(newSpan);
+  }
+}
+
+async function deleteTopicFromDb(topicUrl, card) {
+  if (!confirm(`Delete this topic from the database? This cannot be undone.`)) return;
+
+  try {
+    const res = await fetch(`/api/results/item?url=${encodeURIComponent(topicUrl)}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    if (data.deleted) {
+      // Animate removal
+      card.style.transition = "opacity 0.3s, transform 0.3s";
+      card.style.opacity = "0";
+      card.style.transform = "translateX(-20px)";
+      setTimeout(() => card.remove(), 300);
+      // Update count
+      const countEl = document.getElementById("result-count");
+      if (countEl) {
+        const match = countEl.textContent.match(/^(\d+) topics/);
+        if (match) {
+          const newCount = parseInt(match[1], 10) - 1;
+          countEl.textContent = countEl.textContent.replace(/^\d+ topics/, `${newCount} topics`);
+        }
+      }
+    } else {
+      alert("Topic not found in database.");
+    }
+  } catch (err) {
+    alert(`Failed to delete: ${err.message}`);
+  }
+}
 
 // --- Image Carousel ---
 

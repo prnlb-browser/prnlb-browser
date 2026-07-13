@@ -264,6 +264,53 @@ async function handleRequest(
       return;
     }
 
+    // DELETE /api/results/item — delete a single topic from DB
+    if (url.pathname === "/api/results/item" && method === "DELETE") {
+      const topicUrl = url.searchParams.get("url");
+      if (!topicUrl) {
+        json(res, { error: "url query parameter is required" }, 400);
+        return;
+      }
+      const store = getDb();
+      const deleted = store.deleteByUrl(topicUrl);
+      json(res, { deleted, topicUrl });
+      return;
+    }
+
+    // POST /api/results/reload-details — rescrape topic details and update DB
+    if (url.pathname === "/api/results/reload-details" && method === "POST") {
+      const body = await readBody(req);
+      const { topicUrl } = JSON.parse(body) as { topicUrl: string };
+      if (!topicUrl) {
+        json(res, { error: "topicUrl is required" }, 400);
+        return;
+      }
+      const config = currentConfig ?? loadConfig();
+
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+      res.flushHeaders();
+
+      const emit = (data: object) => {
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (typeof (res as any).flush === "function") (res as any).flush();
+      };
+
+      try {
+        const details = await fetchTopicDetails(topicUrl, config, (p) => emit(p));
+        const store = getDb();
+        store.updateDetails(topicUrl, details);
+        emit({ phase: "done", message: "Details updated", details });
+      } catch (err) {
+        emit({ phase: "error", message: (err as Error).message });
+      }
+      res.end();
+      return;
+    }
+
     // GET /api/results/export — export all topics as CSV
     if (url.pathname === "/api/results/export" && method === "GET") {
       const store = getDb();

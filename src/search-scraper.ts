@@ -70,20 +70,26 @@ async function ensureLoggedIn(page: Page, config: Config, onProgress?: (p: Crawl
   });
   await sleep(2000);
 
-  // Check if already logged in
-  const loginForm = page.locator('form[action="login.php"]');
-  if ((await loginForm.count()) === 0) {
+  // Check if already logged in — look for user profile link
+  const hasUserLink = (await page.locator(`a:has-text("${config.credentials.username}")`).count()) > 0;
+  if (hasUserLink) {
     loggedIn = true;
     return;
   }
 
-  // Need to login
-  emit({ phase: "login", message: "Opening login page..." });
-  await page.goto("https://pornolab.net/forum/login.php", {
-    waitUntil: "domcontentloaded",
-    timeout: 30_000,
-  });
-  await sleep(1000);
+  // Look for the login form on the current page (header/sidebar login widget).
+  // This avoids navigating to login.php which may redirect to index.php.
+  const loginForm = page.locator('form[action="login.php"]');
+  const formCount = await loginForm.count();
+
+  if (formCount === 0) {
+    // No login form found — may have been redirected, try checking for login
+    // form after waiting longer (slow network / initial session setup)
+    emit({ phase: "login", message: "Waiting for login form to appear..." });
+    await page.waitForSelector('form[action="login.php"]', { timeout: 10_000 }).catch(() => {});
+  }
+
+  emit({ phase: "login", message: "Authenticating..." });
 
   // Retry loop — allows captcha to be entered again if code was wrong
   const maxAttempts = 5;
@@ -128,7 +134,7 @@ async function ensureLoggedIn(page: Page, config: Config, onProgress?: (p: Crawl
         );
       }
 
-      // No captcha — fill credentials and submit
+      // No captcha — fill credentials and submit directly from this page
       emit({ phase: "login", message: `Filling credentials (attempt ${attempt})...` });
       try {
         await usernameField.fill(config.credentials.username);
@@ -149,18 +155,19 @@ async function ensureLoggedIn(page: Page, config: Config, onProgress?: (p: Crawl
       }
     }
 
-    // Verify login succeeded: either we're on index.php or username link exists
-    const url = page.url();
-    const hasUserLink = (await page.locator(`a:has-text("${config.credentials.username}")`).count()) > 0;
-    const onIndex = url.includes("index.php");
+    // Verify login succeeded: either we're on a page with the username link
+    // or we no longer see the login form
+    const currentUrl = page.url();
+    const hasUserLinkNow = (await page.locator(`a:has-text("${config.credentials.username}")`).count()) > 0;
+    const loginFormGone = (await page.locator('form[action="login.php"]').count()) === 0;
 
-    if (hasUserLink || onIndex) {
+    if (hasUserLinkNow || loginFormGone) {
       emit({ phase: "login", message: "Login successful!" });
       loggedIn = true;
       return;
     }
 
-    // Check if we're still on the login page (wrong captcha, etc.)
+    // Check if we're still on a page with login form (wrong captcha, etc.)
     const stillOnLogin = page.locator('form[action="login.php"]');
     if ((await stillOnLogin.count()) > 0 && attempt < maxAttempts) {
       emit({ phase: "login", message: `Login attempt ${attempt} failed, retrying...` });
@@ -289,37 +296,54 @@ export async function searchPornolab(
     if (startOffset > 0) {
       emit({ phase: "listing", message: `Navigating to page ${Math.floor(startOffset / 50) + 1}...` });
 
-      // Find the selector for the pagination link with the target start value
-      const paginationSelector = `a[href*="tracker.php"][href*="start=${startOffset}"]`;
-      const paginationLink = page.locator(paginationSelector).first();
-      const hasLink = (await paginationLink.count()) > 0;
+      // Find the pagination link with exact start value using JS evaluation.
+      // We can't use a simple CSS *-selector because `start=5` would match `start=50`,
+      // so we evaluate each link's href and match the exact number.
+      const paginationHref = await page.evaluate((targetStart: number) => {
+        const links = document.querySelectorAll("a[href*='start=']");
+        for (const link of Array.from(links)) {
+          const href = (link as HTMLAnchorElement).getAttribute("href") || "";
+          const match = href.match(/start=(\d+)/);
+          if (match && parseInt(match[1], 10) === targetStart) {
+            return href;
+          }
+        }
+        return null;
+      }, startOffset);
 
-      if (hasLink) {
-        // Click the pagination link — it naturally preserves all search params
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => {}),
-          paginationLink.click(),
-        ]);
+      if (paginationHref) {
+        // Resolve relative URLs
+        let targetUrl = paginationHref;
+        if (!targetUrl.startsWith("http")) {
+          const base = page.url();
+          const baseUrl = base.split("?")[0];
+          targetUrl = paginationHref.startsWith("?")
+            ? baseUrl + paginationHref
+            : new URL(paginationHref, base).href;
+        }
+
+        emit({ phase: "listing", message: `Navigating to page...` });
+        await page.goto(targetUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
+        await sleep(2000);
       } else {
-        // Fallback: re-submit the form with injected start field
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30_000 }).catch(() => {}),
-          page.evaluate((start: number) => {
-            const form = document.getElementById("tr-form") as HTMLFormElement | null;
-            if (!form) return;
-            const existing = form.querySelector('input[name="start"]');
-            if (existing) existing.remove();
-            const input = document.createElement("input");
-            input.type = "hidden";
-            input.name = "start";
-            input.value = String(start);
-            form.appendChild(input);
-            form.submit();
-          }, startOffset),
-        ]);
+        // Fallback: navigate by appending/replacing start= in the current URL
+        let targetUrl = page.url();
+        if (targetUrl.includes("start=")) {
+          targetUrl = targetUrl.replace(/start=\d+/, `start=${startOffset}`);
+        } else {
+          const separator = targetUrl.includes("?") ? "&" : "?";
+          targetUrl = `${targetUrl}${separator}start=${startOffset}`;
+        }
+        emit({ phase: "listing", message: `Navigating to page...` });
+        await page.goto(targetUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
+        await sleep(2000);
       }
-
-      await sleep(2000);
     }
 
     // Debug: emit page URL and title after form submission
@@ -432,12 +456,15 @@ export async function searchPornolab(
       const currentStart = urlMatch ? parseInt(urlMatch[1], 10) : 0;
       const currentPage = Math.floor(currentStart / PER_PAGE) + 1;
 
-      // Find max start value from pagination links
+      // Find max start value from pagination links.
+      // Only consider links with checkPage=no (tracker pagination) or links
+      // inside the main pagination nav to avoid matching random links on the page.
       let maxStart = 0;
       const allLinks = document.querySelectorAll("a[href*='start=']");
       for (const link of Array.from(allLinks)) {
         const href = link.getAttribute("href") || "";
-        const match = href.match(/start=(\d+)/);
+        // Use a precise regex that matches start= exactly and captures the full number
+        const match = href.match(/[?&]start=(\d+)/);
         if (match) {
           const s = parseInt(match[1], 10);
           if (s > maxStart) maxStart = s;

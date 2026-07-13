@@ -317,7 +317,65 @@ input:focus { border-color: var(--accent); }
 .result-meta .label { color: var(--text-muted); }
 .result-meta .value { color: var(--text); }
 
-.result-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; }
+.result-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; }
+
+/* --- Result card popup menu --- */
+.result-actions-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.btn-menu-trigger {
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 0.35rem 0.5rem;
+  line-height: 1;
+}
+
+.popup-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 0.25rem 0;
+  display: none;
+  margin-top: 4px;
+}
+
+.popup-menu.open {
+  display: block;
+}
+
+.popup-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.popup-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.popup-menu-item.danger {
+  color: #fca5a5;
+}
+
+.popup-menu-item.danger:hover {
+  background: #7f1d1d;
+}
 
 .empty-state {
   text-align: center;
