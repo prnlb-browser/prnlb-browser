@@ -2,23 +2,7 @@ import type { Browser, BrowserContext, Page } from "playwright-core";
 import type { Config, TopicData, CrawlProgress } from "./types.js";
 import { launchChromium } from "./browser.js";
 import { handleCaptchaIfPresent } from "./captcha-handler.js";
-
-// --- Helpers ---
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function randomDelay(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function resolveUrl(href: string): string {
-  if (!href) return href;
-  if (href.startsWith("http")) return href;
-  if (href.startsWith("//")) return "https:" + href;
-  return `https://pornolab.net/forum/${href.replace(/^\.\//, "")}`;
-}
+import { sleep, randomDelay, resolveUrl, parseTopicDetails } from "./shared-scraper.js";
 
 // --- Types ---
 
@@ -490,29 +474,10 @@ export async function fetchTopicDetails(
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await sleep(2000);
 
-    const details = await page.evaluate(() => {
-      // Post image — <var class="postImg" title="URL">
-      const postImg = document.querySelector("var.postImg");
-      const postImage = postImg ? postImg.getAttribute("title") : null;
-
-      // Metadata from post body text
-      const postEl = document.querySelector(".post-user-message");
-      const postText = postEl ? (postEl as HTMLElement).innerText || "" : "";
-
-      const starringMatch = postText.match(/В ролях[:\s]*([^\n]+)/i);
-      const starring = starringMatch ? starringMatch[1]?.trim() || null : null;
-
-      const dateMatch = postText.match(/Дата производства[:\s]*([^\n]+)/i);
-      const productionDate = dateMatch ? dateMatch[1]?.trim() || null : null;
-
-      const durationMatch = postText.match(/Продолжительность[:\s]*([^\n]+)/i);
-      const duration = durationMatch ? durationMatch[1]?.trim() || null : null;
-
-      return { postImage, starring, productionDate, duration };
-    });
+    const details = await parseTopicDetails(page);
 
     return {
-      postImage: details.postImage ? resolveUrl(details.postImage) : null,
+      postImage: details.postImage,
       starring: details.starring,
       productionDate: details.productionDate,
       duration: details.duration,

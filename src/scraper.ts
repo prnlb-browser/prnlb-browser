@@ -2,22 +2,7 @@ import type { Browser, Page } from "playwright-core";
 import type { Config, TopicData, CrawlProgress } from "./types.js";
 import { launchChromium } from "./browser.js";
 import { handleCaptchaIfPresent } from "./captcha-handler.js";
-
-// --- Helpers ---
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function randomDelay(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function resolveUrl(href: string): string {
-  return href.startsWith("http")
-    ? href
-    : `https://pornolab.net/forum/${href.replace(/^\.\//, "")}`;
-}
+import { sleep, randomDelay, resolveUrl, parseTopicDetails } from "./shared-scraper.js";
 
 // --- Internal steps ---
 
@@ -180,46 +165,13 @@ async function extractTopicDetails(
       await page.goto(topicRef.url, { waitUntil: "domcontentloaded" });
       await sleep(randomDelay(delay.min, delay.max));
 
-      // Post image — <var class="postImg" title="URL">
-      const postImgSrc = await page
-        .locator("var.postImg")
-        .first()
-        .getAttribute("title")
-        .catch(() => null);
-      if (postImgSrc) entry.postImage = resolveUrl(postImgSrc);
-
-      // Metadata from post body text
-      const postText = await page
-        .locator(".post-user-message")
-        .first()
-        .innerText()
-        .catch(() => "");
-
-      const starringMatch = postText.match(/В ролях[:\s]*([^\n]+)/i);
-      if (starringMatch) entry.starring = starringMatch[1]?.trim() || null;
-
-      const dateMatch = postText.match(/Дата производства[:\s]*([^\n]+)/i);
-      if (dateMatch) entry.productionDate = dateMatch[1]?.trim() || null;
-
-      const durationMatch = postText.match(/Продолжительность[:\s]*([^\n]+)/i);
-      if (durationMatch) entry.duration = durationMatch[1]?.trim() || null;
-
-      // Size from stats table — td.borderless.bCenter
-      const statsText = await page
-        .locator("td.borderless.bCenter")
-        .first()
-        .innerText({ timeout: 5_000 })
-        .catch(() => "");
-      const sizeMatch = statsText.match(/Размер[:\s]*([\d.,]+\s*[KMGT]?B)/i);
-      if (sizeMatch) entry.size = sizeMatch[1]?.trim() || null;
-
-      // Torrent download link — <a class="dl-link" href="dl.php?t=...">
-      const dlHref = await page
-        .locator("a.dl-link")
-        .first()
-        .getAttribute("href", { timeout: 5_000 })
-        .catch(() => null);
-      if (dlHref) entry.torrentUrl = resolveUrl(dlHref);
+      const details = await parseTopicDetails(page);
+      if (details.postImage) entry.postImage = details.postImage;
+      if (details.starring) entry.starring = details.starring;
+      if (details.productionDate) entry.productionDate = details.productionDate;
+      if (details.duration) entry.duration = details.duration;
+      if (details.size) entry.size = details.size;
+      if (details.torrentUrl) entry.torrentUrl = details.torrentUrl;
     } catch (err) {
       onProgress({
         phase: "detail",

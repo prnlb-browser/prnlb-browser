@@ -171,6 +171,8 @@ input:focus { border-color: var(--accent); }
 
 .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
 .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-secondary { background: var(--surface); border-color: var(--text-muted); color: var(--text); }
+.btn-secondary:hover { background: var(--surface-hover); border-color: var(--text); }
 .btn-small { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
 .btn-large { padding: 0.75rem 2rem; font-size: 1rem; }
 .btn-danger { background: #7f1d1d; border-color: #991b1b; color: #fca5a5; }

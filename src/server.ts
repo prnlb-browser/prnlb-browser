@@ -264,6 +264,32 @@ async function handleRequest(
       return;
     }
 
+    // GET /api/results/export — export all topics as CSV
+    if (url.pathname === "/api/results/export" && method === "GET") {
+      const store = getDb();
+      const topics = store.getAll();
+      const headers = ["topicUrl", "title", "postImage", "starring", "productionDate", "duration", "size", "torrentUrl", "sourceForum", "hidden"];
+      const escapeCsv = (val: string | null): string => {
+        if (val === null) return "";
+        const s = String(val);
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+      const csvLines = [headers.join(",")];
+      for (const t of topics) {
+        csvLines.push(headers.map((h) => escapeCsv((t as any)[h])).join(","));
+      }
+      const csv = csvLines.join("\n");
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="topics-export-${new Date().toISOString().slice(0, 10)}.csv"`,
+      });
+      res.end(csv);
+      return;
+    }
+
     // POST /api/results/add — add a single topic to DB
     if (url.pathname === "/api/results/add" && method === "POST") {
       const body = await readBody(req);

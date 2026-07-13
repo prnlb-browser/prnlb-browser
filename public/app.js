@@ -294,6 +294,27 @@ btnClearDb.addEventListener("click", async () => {
   }
 });
 
+// --- Export CSV ---
+
+document.getElementById("btn-export-csv").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/results/export");
+    if (!res.ok) throw new Error("Failed to export");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `topics-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showStatus(configStatus, "CSV exported!", false);
+  } catch (err) {
+    showStatus(configStatus, err.message, true);
+  }
+});
+
 // --- Crawl ---
 
 function appendLog(text) {
