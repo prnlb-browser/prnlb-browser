@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ImgboxResolver } from "../src/resolvers/imgbox.js";
+import { ImgboxResolver } from "../src/core/images/imgbox.js";
 
 /**
  * Helper: create an ImgboxResolver with a mocked fetchPage method

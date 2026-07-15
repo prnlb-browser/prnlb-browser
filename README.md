@@ -29,9 +29,11 @@
 - **🔍 Smart Crawler** — Automatically browse forums, collect topics, and extract rich metadata (title, cast, duration, file size, torrent links, and more)
 - **🔎 Full‑Text Search** — Quickly find topics across your entire database
 - **📂 Results Browser** — Browse everything with images, metadata, and torrent links in a clean web interface
-- **❤️ Favorites** — Save and organize your favorite topics for quick access
+- **📥 Downloaded Library** — Point at a local folder of downloaded videos; each file is auto‑matched against pornolab search results to pull in title, cast, duration, size, and cover art, with search/sort and tagging to keep the library organized
+- **🎭 Actress Catalogue** — Maintain a searchable roster of actresses (with aliases and photos) used to cross‑reference "Cast" across every tab
+- **❤️ Favorites** — Save and organize your favorite topics and actresses for quick access
 - **📸 Screenshot Tool** — Capture and review topic previews without leaving the app
-- **🧠 Deduplication** — Safe to re‑run: already‑scraped topics are skipped automatically
+- **🧠 Deduplication** — Safe to re‑run: already‑scraped topics and previously scanned files are skipped automatically
 - **🖥️ Desktop App** — Native macOS / Windows / Linux builds available (powered by Electron)
 
 ---
@@ -40,12 +42,8 @@
 
 ```bash
 npm install
-npm run build-and-serve
+npm run electron
 ```
-
-Open **http://localhost:3000** in your browser. That's it.
-
-> Set a custom port: `PORT=8080 npm run server`
 
 ---
 
@@ -53,18 +51,23 @@ Open **http://localhost:3000** in your browser. That's it.
 
 ```bash
 npm install              # install dependencies
-npm run build            # compile TypeScript → dist/
-
-# Web UI (recommended)
-npm run server           # start web server on http://localhost:3000
-
-# CLI (headless scraper)
-npm start                # run scraper from terminal
+npm run build            # generate renderer assets and compile TypeScript → dist/
 
 # Desktop app (Electron)
 npm run electron         # development mode
 npm run dist:full        # build distributable for current platform
 ```
+
+The source is organized by application tab under `src/config`, `src/crawl`,
+`src/results`, `src/search`, `src/downloaded`, and `src/actresses`. Shared
+platform, server, scraping, image, and renderer functionality lives under
+`src/core`.
+`public/app.js` is generated from the feature `client.js` files during builds.
+
+A credentials-free `config.template.json` is bundled with the app so the
+defaults are present on first launch; the actual `config.json` (with any
+credentials you enter) is created and stored only inside Electron's user
+data directory and is gitignored.
 
 ---
 

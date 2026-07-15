@@ -2,15 +2,13 @@
   "name": "prnlb-browser",
   "version": "1.0.0",
   "description": "Playwright script for parsing pornolab.net forum topics",
-  "main": "dist/src/electron.js",
+  "main": "dist/src/core/electron.js",
   "scripts": {
-    "build": "tsc",
+    "clean": "node scripts/clean.js",
+    "build:renderer": "node scripts/build-renderer.js",
+    "build": "npm run clean && npm run build:renderer && tsc",
     "install-browsers": "node scripts/install-browsers.js",
-    "start": "node dist/src/cli.js",
-    "server": "node dist/src/server.js",
-    "build-and-run": "npm run build && npm start",
-    "build-and-serve": "npm run build && npm run server",
-    "electron": "npm run build && electron dist/src/electron.js",
+    "electron": "npm run build && electron dist/src/core/electron.js",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
@@ -19,7 +17,9 @@
     "dist:win:full": "npm run install-browsers -- --platform=win32 && npm run dist:win",
     "dist:mac:full": "npm run install-browsers && npm run dist:mac",
     "dist:linux:full": "npm run install-browsers -- --platform=linux && npm run dist:linux",
-    "test": "npx tsx --test test/**/*.test.ts"
+    "test": "npx tsx --test test/**/*.test.ts",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "build": {
     "appId": "com.prnlb.browser",
@@ -40,8 +40,8 @@
         ]
       },
       {
-        "from": "config.json",
-        "to": "config.json"
+        "from": "config.template.json",
+        "to": "config.template.json"
       },
       {
         "from": "browsers",

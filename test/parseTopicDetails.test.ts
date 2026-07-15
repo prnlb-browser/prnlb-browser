@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseTopicDetails } from "../src/shared-scraper.js";
+import { parseTopicDetails } from "../src/core/scraping/shared.js";
 import {
   SOFIYA_ERSHOVA_HTML,
   NICOLE_LOVE_HTML,

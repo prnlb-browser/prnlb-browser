@@ -1,8 +1,8 @@
 import type { Browser, Page } from "playwright-core";
-import type { Config, TopicData, CrawlProgress } from "./types.js";
-import { launchChromium } from "./browser.js";
-import { handleCaptchaIfPresent } from "./captcha-handler.js";
-import { sleep, randomDelay, resolveUrl, parseTopicDetails } from "./shared-scraper.js";
+import type { Config, TopicData, CrawlProgress } from "../core/types.js";
+import { launchChromium } from "../core/browser.js";
+import { handleCaptchaIfPresent } from "../core/captcha-handler.js";
+import { sleep, randomDelay, resolveUrl, parseTopicDetails } from "../core/scraping/shared.js";
 
 // --- Internal steps ---
 
@@ -26,7 +26,7 @@ async function login(
       onProgress({ phase: "login", message: `Captcha challenge (attempt ${attempt})...` });
       const captchaHandled = await handleCaptchaIfPresent(page, (info) => {
         onProgress({
-          phase: "captcha-needed",
+          phase: "captchaNeeded",
           message: "CAPTCHA required — please enter the code from the image",
           captcha: info,
         });

@@ -2,6 +2,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  color-scheme: dark;
   --bg: #0f1117;
   --surface: #1a1d27;
   --surface-hover: #222636;
@@ -92,7 +93,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 
@@ -247,8 +248,10 @@ input:focus { border-color: var(--accent); }
 /* --- Results --- */
 .results-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
-  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .result-card {
@@ -259,8 +262,12 @@ input:focus { border-color: var(--accent); }
   display: flex;
   gap: 1rem;
   transition: border-color 0.2s;
-  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  max-width: 100%;
 }
+.result-card:has(.popup-menu.open) { z-index: 50; }
 .result-card:hover { border-color: var(--text-muted); }
 .result-card--hidden { opacity: 0.45; border-color: var(--warning); }
 .result-card--fav {
@@ -279,16 +286,16 @@ input:focus { border-color: var(--accent); }
 .fav-actress-entry .btn { flex-shrink: 0; }
 
 .result-thumb {
-  width: 320px;
-  min-width: 320px;
-  height: 240px;
+  width: clamp(160px, 35%, 320px);
+  min-width: 0;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 6px;
   flex-shrink: 0;
   background: var(--border);
 }
 
-.result-info { flex: 1; min-width: 0; overflow: hidden; }
+.result-info { flex: 1; min-width: 0; }
 
 .result-title {
   font-weight: 600;
@@ -297,32 +304,66 @@ input:focus { border-color: var(--accent); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
 }
 
 .result-title a {
   color: var(--text);
   text-decoration: none;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .result-title a:hover { color: var(--accent); }
 
 .result-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1rem;
+  flex-direction: column;
+  gap: 0.25rem;
   font-size: 0.78rem;
   color: var(--text-muted);
 }
 
-.result-meta span { white-space: nowrap; }
-.result-meta .label { color: var(--text-muted); }
-.result-meta .value { color: var(--text); }
+.result-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  min-width: 0;
+  max-width: 100%;
+}
 
-.result-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; }
+.result-meta-row > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.result-meta .label { color: var(--text-muted); flex-shrink: 0; }
+.result-meta .value {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.result-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; min-width: 0; max-width: 100%; }
 
 /* --- Result card popup menu --- */
 .result-actions-menu-wrapper {
   position: relative;
   display: inline-flex;
+  z-index: 10;
+}
+
+.result-actions-menu-wrapper:has(.popup-menu.open) {
+  z-index: 100;
 }
 
 .btn-menu-trigger {
@@ -662,9 +703,9 @@ input:focus { border-color: var(--accent); }
 
 /* --- Search Result Thumb Container --- */
 .result-thumb-container {
-  width: 320px;
-  min-width: 320px;
-  height: 240px;
+  width: clamp(160px, 35%, 320px);
+  min-width: 0;
+  aspect-ratio: 4 / 3;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -684,3 +725,283 @@ input:focus { border-color: var(--accent); }
   font-size: 2.5rem;
   opacity: 0.3;
 }
+
+/* Stack result card vertically on narrow windows so it never overflows. */
+@media (max-width: 640px) {
+  .result-card {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .result-thumb-container {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  .result-thumb {
+    width: 100%;
+    min-width: 0;
+  }
+  .result-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* --- Downloaded Tab --- */
+
+.no-match {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+#dl-folder-path {
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.8rem;
+  cursor: default;
+}
+
+/* Tag chips shown after the action buttons on each downloaded item. */
+.item-tags {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.15rem 0.35rem 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  max-width: 100%;
+  transition: border-color 0.15s, background 0.15s, opacity 0.2s;
+}
+
+.tag-chip:hover {
+  border-color: var(--accent);
+}
+
+.tag-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.tag-chip-remove {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-radius: 50%;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+/* The visible glyph is only 16px, an easy miss for a real pointer. This
+   pseudo-element pads the actual clickable/tappable area out to ~28px
+   without affecting layout or the chip's visual size. */
+.tag-chip-remove::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.tag-chip-remove:hover {
+  background: var(--error);
+  color: white;
+}
+
+.tag-chip--suggestion {
+  cursor: pointer;
+  background: var(--surface);
+  border-style: dashed;
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.tag-chip--suggestion:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.tag-chip--suggestion:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tag-chip-append {
+  font-weight: 700;
+  color: var(--accent);
+  margin-left: 0.15rem;
+}
+
+.btn-tag-add {
+  border-style: dashed;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+}
+
+.btn-tag-add:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.tag-suggestion-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag-filter-select {
+  background: var(--surface);
+  min-width: 160px;
+  max-width: 320px;
+  vertical-align: middle;
+}
+
+.tag-filter-select:focus { border-color: var(--accent); }
+.tag-filter-select option {
+  padding: 0.25rem 0.5rem;
+}
+.tag-filter-select option:checked {
+  background: var(--accent);
+  color: white;
+}
+
+/* Colored tag chip variant — the inline `--tag-color` custom property
+   tints both the chip background and the remove-button hover ring. */
+.tag-chip--colored {
+  background: var(--tag-color);
+  border-color: transparent;
+  color: var(--tag-fg, #fff);
+}
+.tag-chip--colored .tag-chip-remove { color: var(--tag-fg, #fff); opacity: 0.85; }
+.tag-chip--colored .tag-chip-remove:hover { background: rgba(0, 0, 0, 0.35); color: #fff; }
+.tag-chip--colored:hover { filter: brightness(1.1); }
+
+/* Color swatches in the Add Tag modal. */
+.tag-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tag-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.15s;
+  background: var(--bg);
+}
+.tag-color-swatch:hover { transform: scale(1.1); }
+.tag-color-swatch--selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.tag-color-swatch--none {
+  background:
+    linear-gradient(45deg, transparent 45%, var(--error) 45%, var(--error) 55%, transparent 55%),
+    var(--bg);
+}
+
+/* --- Actress tab --- */
+.actress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.actress-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  text-align: center;
+}
+.actress-tile:hover { border-color: var(--text-muted); }
+
+.actress-tile-thumb-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.actress-tile-fav {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s, color 0.15s, background 0.15s;
+}
+.actress-tile-fav:hover { transform: scale(1.12); background: rgba(0, 0, 0, 0.75); }
+.actress-tile-fav--active { color: #d4a017; }
+
+.actress-tile-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.actress-tile-placeholder {
+  font-size: 2.5rem;
+  opacity: 0.3;
+}
+
+.actress-tile-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cast names rendered as links to the Actress tab (see renderCastLinks). */
+.cast-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--text-muted);
+}
+.cast-link:hover { color: var(--accent); border-bottom-color: var(--accent); }

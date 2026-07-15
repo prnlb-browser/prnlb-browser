@@ -13,7 +13,7 @@ let configured = false;
  * 1. If PLAYWRIGHT_BROWSERS_PATH is already set (e.g. by electron.ts),
  *    leave it alone.
  * 2. Packaged Electron app → process.resourcesPath/browsers/
- * 3. Development → project root browsers/ (two levels up from dist/src/)
+ * 3. Development → project root browsers/ (three levels up from dist/src/core/)
  */
 function ensureBrowserPath(): void {
   if (configured) return;
@@ -30,8 +30,8 @@ function ensureBrowserPath(): void {
     }
   }
 
-  // Fallback: project root browsers/ dir (two levels up from dist/src/)
-  const devDir = path.resolve(__dirname, "..", "..", "browsers");
+  // Fallback: project root browsers/ dir (three levels up from dist/src/core/)
+  const devDir = path.resolve(__dirname, "..", "..", "..", "browsers");
   if (fs.existsSync(devDir)) {
     process.env.PLAYWRIGHT_BROWSERS_PATH = devDir;
   }

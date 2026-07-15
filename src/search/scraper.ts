@@ -1,8 +1,8 @@
 import type { Browser, BrowserContext, Page } from "playwright-core";
-import type { Config, TopicData, CrawlProgress } from "./types.js";
-import { launchChromium } from "./browser.js";
-import { handleCaptchaIfPresent } from "./captcha-handler.js";
-import { sleep, randomDelay, resolveUrl, parseTopicDetails } from "./shared-scraper.js";
+import type { Config, TopicData, CrawlProgress } from "../core/types.js";
+import { launchChromium } from "../core/browser.js";
+import { handleCaptchaIfPresent } from "../core/captcha-handler.js";
+import { sleep, randomDelay, resolveUrl, parseTopicDetails } from "../core/scraping/shared.js";
 
 // --- Types ---
 
@@ -100,7 +100,7 @@ async function ensureLoggedIn(page: Page, config: Config, onProgress?: (p: Crawl
       emit({ phase: "login", message: `Captcha challenge (attempt ${attempt})...` });
       const captchaHandled = await handleCaptchaIfPresent(page, (info) => {
         emit({
-          phase: "captcha-needed",
+          phase: "captchaNeeded",
           message: "CAPTCHA required — please enter the code from the image",
           captcha: info,
         });
@@ -488,7 +488,13 @@ export async function fetchTopicDetails(
   topicUrl: string,
   config: Config,
   onProgress?: (p: CrawlProgress) => void,
-): Promise<{ postImage: string | null; starring: string | null; productionDate: string | null; duration: string | null }> {
+): Promise<{
+  postImage: string | null;
+  starring: string | null;
+  productionDate: string | null;
+  duration: string | null;
+  size: string | null;
+}> {
   const { page } = await getBrowserContext(config);
   try {
     await ensureLoggedIn(page, config, onProgress);
@@ -508,6 +514,7 @@ export async function fetchTopicDetails(
       starring: details.starring,
       productionDate: details.productionDate,
       duration: details.duration,
+      size: details.size,
     };
   } finally {
     await page.close();

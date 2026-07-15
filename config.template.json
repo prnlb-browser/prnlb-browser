@@ -13,13 +13,11 @@
       "label": " Сайтрипы 2026 (HD Video) / SiteRip's 2026 (HD Video)"
     }
   ],
-  "pagesToScan": 2,
+  "pagesToScan": 1,
   "headless": true,
-  "outputFile": "output.json",
   "delay": {
     "min": 2000,
     "max": 5000
   },
-  "dbPath": "data.db",
-  "favActresses": []
+  "dbPath": "data.db"
 }

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { FastpicResolver } from "../src/resolvers/fastpic.js";
+import { FastpicResolver } from "../src/core/images/fastpic.js";
 
 /**
  * Helper: create a FastpicResolver with a mocked fetchPage method
@@ -68,20 +68,26 @@ describe("FastpicResolver", () => {
     const resolver = new FastpicResolver();
     const build = (url: string) => (resolver as any).buildViewPageUrl(url) as string | null;
 
-    it("builds view page URL from example 1 — direct big image with hash segment", () => {
+    it("builds view page URL from example 1 — direct big image with hash segment, preserving .jpeg", () => {
       const result = build(EXAMPLE1_HREF);
-      assert.equal(result, "https://fastpic.org/view/127/2026/0704/_8f5089d7d56223811e37685269c0c15f.jpg.html");
+      assert.equal(result, "https://fastpic.org/view/127/2026/0704/_8f5089d7d56223811e37685269c0c15f.jpeg.html");
     });
 
-    it("builds view page URL from example 2 — thumbnail with hash segment", () => {
+    it("builds view page URL from example 2 — thumbnail with hash segment, preserving .jpeg", () => {
       const result = build(EXAMPLE2_IMG_SRC);
-      assert.equal(result, "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpg.html");
+      assert.equal(result, "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpeg.html");
     });
 
-    it("builds view page URL from a thumb URL without hash segment", () => {
+    it("builds view page URL from a thumb URL without hash segment, preserving .jpeg", () => {
       const url = "https://i5.fastpic.org/thumb/2023/1001/abcdef1234567890abcdef1234567890.jpeg";
       const result = build(url);
-      assert.equal(result, "https://fastpic.org/view/5/2023/1001/abcdef1234567890abcdef1234567890.jpg.html");
+      assert.equal(result, "https://fastpic.org/view/5/2023/1001/abcdef1234567890abcdef1234567890.jpeg.html");
+    });
+
+    it("preserves a .jpg extension unchanged", () => {
+      const url = "https://i128.fastpic.org/big/2026/0714/0c/_054917c0c3b040142c9ed274a096e50c.jpg";
+      const result = build(url);
+      assert.equal(result, "https://fastpic.org/view/128/2026/0714/_054917c0c3b040142c9ed274a096e50c.jpg.html");
     });
 
     it("returns null for invalid hostname", () => {
@@ -142,7 +148,7 @@ describe("FastpicResolver", () => {
 
   describe("resolve", () => {
     it("resolves example 1 — direct big image URL via page fetch", async () => {
-      const viewPageUrl = "https://fastpic.org/view/127/2026/0704/_8f5089d7d56223811e37685269c0c15f.jpg.html";
+      const viewPageUrl = "https://fastpic.org/view/127/2026/0704/_8f5089d7d56223811e37685269c0c15f.jpeg.html";
       const bigImageUrl = "https://i127.fastpic.org/big/2026/0704/5f/_8f5089d7d56223811e37685269c0c15f.jpg?md5=abc123&expires=1720000000";
 
       const mockHtml = `<html><body>
@@ -169,7 +175,7 @@ describe("FastpicResolver", () => {
     });
 
     it("resolves example 2 — thumbnail URL builds view page and fetches", async () => {
-      const viewPageUrl = "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpg.html";
+      const viewPageUrl = "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpeg.html";
       const bigImageUrl = "https://i123.fastpic.org/big/2024/0613/a4/_08a2baa39669a9d3f6463665cf2c74a4.jpg?md5=ghi789&expires=1720000002";
 
       const mockHtml = `<html><body>
@@ -185,7 +191,7 @@ describe("FastpicResolver", () => {
     it("always loads the page — even for URLs ending in .jpeg", async () => {
       // Simulate a direct .jpeg URL that must be resolved via page fetch
       const directJpegUrl = "https://i99.fastpic.org/big/2025/0101/ab/direct_image.jpeg";
-      const viewPageUrl = "https://fastpic.org/view/99/2025/0101/direct_image.jpg.html";
+      const viewPageUrl = "https://fastpic.org/view/99/2025/0101/direct_image.jpeg.html";
       const resolvedUrl = "https://i99.fastpic.org/big/2025/0101/ab/direct_image.jpg?md5=test&expires=9999";
 
       const mockHtml = `<html><body>
@@ -226,6 +232,27 @@ describe("FastpicResolver", () => {
       const resolver = new FastpicResolver();
       const result = await resolver.resolve("not-a-valid-url");
       assert.equal(result, null);
+    });
+
+    it("resolves a real postLink href whose extension is .jpeg (regression)", async () => {
+      // From a live pornolab post: the <a href> big-image URL is .jpeg,
+      // distinct from the thumbnail's <var title>/<img src> (different hash).
+      // Building the view page with a hardcoded .jpg extension previously
+      // returned a signed URL that 404s — fastpic's md5 token is bound to
+      // the extension of the requested view page.
+      const href = "https://i128.fastpic.org/big/2026/0714/0c/_054917c0c3b040142c9ed274a096e50c.jpeg";
+      const viewPageUrl = "https://fastpic.org/view/128/2026/0714/_054917c0c3b040142c9ed274a096e50c.jpeg.html";
+      const resolvedUrl =
+        "https://i128.fastpic.org/big/2026/0714/0c/_054917c0c3b040142c9ed274a096e50c.jpeg?md5=SjuFG1ARKrAV_8kpIsb2bw&expires=1784293200";
+
+      const mockHtml = `<html><body>
+        <img src="${resolvedUrl}" class="image img-fluid" />
+      </body></html>`;
+
+      const resolver = createMockResolver({ [viewPageUrl]: mockHtml });
+      const result = await resolver.resolve(href);
+
+      assert.equal(result, resolvedUrl);
     });
   });
 });
