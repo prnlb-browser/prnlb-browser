@@ -7,19 +7,20 @@
 ## 📸 At a Glance
 
 <p float="left">
-  <img src=".github/assets/search.png" width="45%" alt="Search results" />
-  <img src=".github/assets/screens.png" width="45%" alt="Screenshots tool" />
+  <img src=".github/assets/01-crawl.png" width="45%" alt="Crawl tab" />
+  <img src=".github/assets/02-crawl-results.png" width="45%" alt="Results browser" />
 </p>
 <p float="left">
-  <img src=".github/assets/results.png" width="45%" alt="Results browser" />
-  <img src=".github/assets/crawl.png" width="45%" alt="Live crawl progress" />  
+  <img src=".github/assets/03-screens.png" width="45%" alt="Screenshot tool" />
+  <img src=".github/assets/04-search.png" width="45%" alt="Tracker search" />
 </p>
 <p float="left">
-  <img src=".github/assets/favorite-00.png" width="45%" alt="Favorites view" />
-  <img src=".github/assets/favorite-01.png" width="45%" alt="Favorites detail" />
+  <img src=".github/assets/05-downloaded.png" width="45%" alt="Downloaded library" />
+  <img src=".github/assets/06-downloaded-details.png" width="45%" alt="Downloaded item detail" />
 </p>
 <p float="left">
-  <img src=".github/assets/config.png" width="45%" alt="Configuration screen" />
+  <img src=".github/assets/07-actresses.png" width="45%" alt="Actress catalogue" />
+  <img src=".github/assets/08-actresses-details.png" width="45%" alt="Actress detail" />
 </p>
 
 ---
@@ -27,8 +28,8 @@
 ## ✨ Features
 
 - **🔍 Smart Crawler** — Automatically browse forums, collect topics, and extract rich metadata (title, cast, duration, file size, torrent links, and more)
-- **🔎 Full‑Text Search** — Quickly find topics across your entire database
-- **📂 Results Browser** — Browse everything with images, metadata, and torrent links in a clean web interface
+- **🔎 Tracker Search** — Search pornolab.net's live tracker directly (scoped by category), then add any result straight into your local database
+- **📂 Results Browser** — Full‑text search, filter by forum or actress, hide topics you're not interested in, and tag topics (e.g. "to download") to keep your local database organized
 - **📥 Downloaded Library** — Point at a local folder of downloaded videos; each file is auto‑matched against pornolab search results to pull in title, cast, duration, size, and cover art, with search/sort and tagging to keep the library organized
 - **🎭 Actress Catalogue** — Maintain a searchable roster of actresses (with aliases and photos) used to cross‑reference "Cast" across every tab
 - **❤️ Favorites** — Save and organize your favorite topics and actresses for quick access
