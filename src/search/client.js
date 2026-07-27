@@ -453,12 +453,3 @@ searchQuery.addEventListener("keydown", (e) => {
   if (e.key === "Enter") performSearch();
 });
 
-// Load search forum options on tab switch
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    if (tab.dataset.tab === "search" && searchForumOptions.length === 0) {
-      loadSearchForumOptions();
-    }
-  });
-});
-

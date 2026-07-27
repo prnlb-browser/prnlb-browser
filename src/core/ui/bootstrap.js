@@ -107,15 +107,23 @@ captchaCodeInput.addEventListener("keydown", (e) => {
 let captchaActiveId = null;
 
 // --- Tabs ---
+// Shared by tab-button clicks and any code that needs to jump to a tab
+// programmatically (e.g. the actress card's quick-action buttons).
+function switchToTab(tabName) {
+  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  const tabContent = document.getElementById(`tab-${tabName}`);
+  if (!tabBtn || !tabContent) return;
+  tabs.forEach((t) => t.classList.remove("active"));
+  tabContents.forEach((tc) => tc.classList.remove("active"));
+  tabBtn.classList.add("active");
+  tabContent.classList.add("active");
+  if (tabName === "results") { loadForums(); loadAllResultsKnownTags(); loadResults(); }
+  if (tabName === "downloaded") { loadAllKnownTags(); }
+  if (tabName === "actress") { loadActresses(); }
+  if (tabName === "search" && searchForumOptions.length === 0) { loadSearchForumOptions(); }
+}
+
 tabs.forEach((tab) => {
-  tab.addEventListener("click", () => {
-    tabs.forEach((t) => t.classList.remove("active"));
-    tabContents.forEach((tc) => tc.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.add("active");
-    if (tab.dataset.tab === "results") { loadForums(); loadAllResultsKnownTags(); loadResults(); }
-    if (tab.dataset.tab === "downloaded") { loadAllKnownTags(); }
-    if (tab.dataset.tab === "actress") { loadActresses(); }
-  });
+  tab.addEventListener("click", () => switchToTab(tab.dataset.tab));
 });
 

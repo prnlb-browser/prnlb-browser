@@ -63,6 +63,11 @@ function renderActressTiles() {
             ? `<img class="actress-tile-thumb" src="${src}" alt="" loading="lazy" onerror="this.style.display='none'" />`
             : `<div class="actress-tile-placeholder">🎭</div>`}
           <button class="actress-tile-fav${a.isFavorite ? " actress-tile-fav--active" : ""}" data-action="toggle-favorite" data-id="${a.id}" title="${a.isFavorite ? "Remove from favorites" : "Add to favorites"}" type="button">${a.isFavorite ? "★" : "☆"}</button>
+          <div class="actress-tile-quick-actions">
+            <button class="actress-tile-quick-action" data-action="open-downloaded" data-id="${a.id}" title="Open in Downloaded" type="button">📥</button>
+            <button class="actress-tile-quick-action" data-action="open-results" data-id="${a.id}" title="Open in Results" type="button">📊</button>
+            <button class="actress-tile-quick-action" data-action="run-search" data-id="${a.id}" title="Search forums" type="button">🔍</button>
+          </div>
         </div>
         <div class="actress-tile-name">${esc(a.name)}</div>
       </div>`;
@@ -92,6 +97,18 @@ actressContainer.addEventListener("click", (e) => {
   if (favBtn) {
     e.stopPropagation();
     toggleActressFavorite(parseInt(favBtn.dataset.id, 10));
+    return;
+  }
+  const quickBtn = e.target.closest(
+    "[data-action='open-downloaded'], [data-action='open-results'], [data-action='run-search']",
+  );
+  if (quickBtn) {
+    e.stopPropagation();
+    const actress = actressItems.find((a) => a.id === parseInt(quickBtn.dataset.id, 10));
+    if (!actress) return;
+    if (quickBtn.dataset.action === "open-downloaded") openActressInDownloaded(actress);
+    else if (quickBtn.dataset.action === "open-results") openActressInResults(actress);
+    else if (quickBtn.dataset.action === "run-search") searchForActress(actress);
     return;
   }
   const tile = e.target.closest(".actress-tile");
@@ -513,20 +530,32 @@ actressLookupButtons.forEach(({ el, provider, label }) => {
   el.addEventListener("click", () => runActressLookup(provider, label));
 });
 
-// --- Cast links: open (or create) the linked actress from any tab ---
+// --- Actress card quick actions: jump to another tab pre-filtered/searched
+// for this actress. ---
 
-function switchToActressTab() {
-  const tabBtn = document.querySelector('.tab[data-tab="actress"]');
-  const tabContent = document.getElementById("tab-actress");
-  if (!tabBtn || !tabContent) return;
-  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-  document.querySelectorAll(".tab-content").forEach((tc) => tc.classList.remove("active"));
-  tabBtn.classList.add("active");
-  tabContent.classList.add("active");
+function openActressInDownloaded(actress) {
+  if (downloadedFilterActress) {
+    downloadedFilterActress.value = `actress:${actress.id}`;
+    if (downloadedItems.length) renderDownloadedItems();
+  }
+  switchToTab("downloaded");
 }
 
+function openActressInResults(actress) {
+  if (filterActress) filterActress.value = `actress:${actress.id}`;
+  switchToTab("results");
+}
+
+function searchForActress(actress) {
+  switchToTab("search");
+  searchQuery.value = actress.name;
+  performSearch();
+}
+
+// --- Cast links: open (or create) the linked actress from any tab ---
+
 async function openActressByName(name) {
-  switchToActressTab();
+  switchToTab("actress");
   await loadActresses();
   try {
     const res = await fetch(`/api/actresses/find?name=${encodeURIComponent(name)}`);
