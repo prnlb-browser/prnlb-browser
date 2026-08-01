@@ -60,6 +60,19 @@ export function readFileStats(filePath: string): {
   }
 }
 
+// Format a byte count as a human-readable string (e.g. "1.23 GB").
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(2)} ${units[unitIndex]}`;
+}
+
 // Enrich an array of items (mutates and returns them) with OS-level file
 // stats. Missing files produce nulls rather than throwing.
 export function enrichItemsWithFileStats<T extends { filePath: string }>(items: T[]): T[] {

@@ -218,7 +218,8 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
 
     const emit = startSse(res);
     if (!topicUrl) {
-      // Clearing the topic URL wipes all topic-derived details (fileName/filePath untouched).
+      // Clearing the topic URL wipes topic-derived details, but size is
+      // disk-derived and independent of the topic, so it is left untouched.
       const clearedFields = {
         topicUrl: null,
         title: null,
@@ -227,7 +228,6 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
         starring: null,
         productionDate: null,
         duration: null,
-        size: null,
       };
       store.updateItem(id, clearedFields);
       emit({ phase: "done", message: "Topic URL and details cleared", data: clearedFields });
@@ -241,6 +241,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
         ? await downloadAndCacheImage(details.postImage, topicUrl, imagesDir)
         : null;
       const title = await fetchTopicTitle(topicUrl).catch(() => null);
+      // size is disk-derived and intentionally left unchanged here.
       store.updateTopicInfo(
         id,
         title,
@@ -250,7 +251,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
         details.starring,
         details.productionDate,
         details.duration,
-        details.size,
+        item.size,
       );
       emit({
         phase: "done",
@@ -263,7 +264,6 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
           starring: details.starring,
           productionDate: details.productionDate,
           duration: details.duration,
-          size: details.size,
         },
       });
     } catch (error) {
@@ -283,7 +283,6 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       starring?: string | null;
       productionDate?: string | null;
       duration?: string | null;
-      size?: string | null;
     }>(req);
     const { id } = body;
     if (!id) {
@@ -303,7 +302,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       if ("starring" in body) fields.starring = body.starring?.trim() ? body.starring.trim() : null;
       if ("productionDate" in body) fields.productionDate = body.productionDate?.trim() ? body.productionDate.trim() : null;
       if ("duration" in body) fields.duration = body.duration?.trim() ? body.duration.trim() : null;
-      if ("size" in body) fields.size = body.size?.trim() ? body.size.trim() : null;
+      // size is intentionally not user-editable — it's derived from disk via Refresh.
 
       if ("topicUrl" in body) {
         const newUrl = body.topicUrl?.trim() ? body.topicUrl.trim() : null;
@@ -314,25 +313,25 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
             emit({ phase: "processing", message: `Crawling new topic URL...` });
             const details = await fetchTopicDetails(newUrl, app.loadConfig(), emit);
             // Crawl results override user-provided values for these derived fields,
-            // unless the user explicitly set them.
+            // unless the user explicitly set them. size is disk-derived and never
+            // overridden here.
             if (!("starring" in body) && details.starring) fields.starring = details.starring;
             if (!("productionDate" in body) && details.productionDate) fields.productionDate = details.productionDate;
             if (!("duration" in body) && details.duration) fields.duration = details.duration;
-            if (!("size" in body) && details.size) fields.size = details.size;
             if (!("title" in body)) {
               const crawledTitle = await fetchTopicTitle(newUrl).catch(() => null);
               if (crawledTitle) fields.title = crawledTitle;
             }
           } else {
-            // Clearing the topic URL wipes all topic-derived details, unlike
-            // changing it (where a missing crawled field just keeps the old value).
+            // Clearing the topic URL wipes topic-derived details, unlike changing
+            // it (where a missing crawled field just keeps the old value). size is
+            // disk-derived and independent of the topic, so it's left untouched.
             fields.title = null;
             fields.postImage = null;
             fields.cachedImage = null;
             fields.starring = null;
             fields.productionDate = null;
             fields.duration = null;
-            fields.size = null;
           }
         }
       }

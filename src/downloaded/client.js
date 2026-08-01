@@ -650,12 +650,12 @@ editSaveBtn.addEventListener("click", async () => {
   const fields = {};
   // topicUrl is intentionally NOT editable here — use "Set topic URL" or
   // "Refresh details" from the popup menu to change it.
+  // size is not user-editable — it's set automatically from disk via Refresh.
   const textInputs = [
     ["title", editTitleInput],
     ["starring", editCastInput],
     ["productionDate", editDateInput],
     ["duration", editDurationInput],
-    ["size", editSizeInput],
   ];
   for (const [key, input] of textInputs) {
     const v = input.value.trim();

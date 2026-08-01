@@ -6,7 +6,13 @@ import type { SseEmitter } from "../core/server/http.js";
 import { launchChromium } from "../core/browser.js";
 import { fetchTopicDetails, searchPornolab } from "../search/scraper.js";
 import { downloadAndCacheImage } from "../core/images/downloader.js";
-import { filenameToSearchQuery, findVideoFiles, prepareImagesDirectory } from "./scanner.js";
+import { filenameToSearchQuery, findVideoFiles, formatFileSize, prepareImagesDirectory, readFileStats } from "./scanner.js";
+
+// size is derived from the file on disk, never from topic resolution or user input.
+function diskSize(filePath: string): string | null {
+  const stats = readFileStats(filePath);
+  return stats.fileSizeBytes !== null ? formatFileSize(stats.fileSizeBytes) : null;
+}
 
 function captchaProgress(emit: SseEmitter): (progress: CrawlProgress) => void {
   return (progress) => {
@@ -21,6 +27,7 @@ async function discoverTopic(
   emit: SseEmitter,
 ): Promise<Omit<DownloadedItem, "id" | "createdAt">> {
   const fileName = path.basename(filePath);
+  const size = diskSize(filePath);
   const result = await searchPornolab(
     app.loadConfig(),
     { query: filenameToSearchQuery(fileName) },
@@ -37,7 +44,7 @@ async function discoverTopic(
     starring: null,
     productionDate: null,
     duration: null,
-    size: null,
+    size,
   };
   if (!best) return empty;
 
@@ -54,9 +61,6 @@ async function discoverTopic(
     ? await downloadAndCacheImage(postImage, best.topicUrl, imagesDir)
     : null;
 
-  // Size sometimes appears in tracker results; prefer the detail-page value.
-  const size = details?.size ?? best.size ?? null;
-
   return {
     fileName,
     filePath,
@@ -71,6 +75,34 @@ async function discoverTopic(
   };
 }
 
+// Re-stat every already-tracked file: refresh its size from disk, or drop it
+// from the DB (and its cached thumbnail) if the file no longer exists.
+function refreshExistingFileSizes(app: AppContext, emit: SseEmitter): void {
+  const store = app.getDownloadedStore();
+  let refreshed = 0;
+  let removed = 0;
+  for (const item of store.getAll()) {
+    const size = diskSize(item.filePath);
+    if (size === null) {
+      if (item.cachedImage) {
+        const imagePath = path.join(path.dirname(item.filePath), ".images", item.cachedImage);
+        try { if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } catch {}
+      }
+      store.deleteById(item.id);
+      removed++;
+    } else if (size !== item.size) {
+      store.updateItem(item.id, { size });
+      refreshed++;
+    }
+  }
+  if (refreshed || removed) {
+    emit({
+      phase: "sizeRefresh",
+      message: `Refreshed size for ${refreshed} file(s)${removed ? `, removed ${removed} missing file(s)` : ""}`,
+    });
+  }
+}
+
 export async function scanDownloadedFolder(
   app: AppContext,
   folderPath: string,
@@ -81,6 +113,8 @@ export async function scanDownloadedFolder(
   if (clean) {
     store.clearAll();
     emit({ phase: "purge", message: "Purged old downloaded data" });
+  } else {
+    refreshExistingFileSizes(app, emit);
   }
 
   const imagesDir = prepareImagesDirectory(folderPath, clean);
@@ -115,7 +149,7 @@ export async function scanDownloadedFolder(
         starring: null,
         productionDate: null,
         duration: null,
-        size: null,
+        size: diskSize(filePath),
       };
     }
     store.insert(item);
@@ -154,6 +188,17 @@ export async function refreshDownloadedItem(
   emit: SseEmitter,
 ): Promise<void> {
   const store = app.getDownloadedStore();
+
+  if (diskSize(item.filePath) === null) {
+    if (item.cachedImage) {
+      const imagePath = path.join(path.dirname(item.filePath), ".images", item.cachedImage);
+      try { if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } catch {}
+    }
+    store.deleteById(item.id);
+    emit({ phase: "done", message: "File no longer exists on disk — removed from library", removed: true });
+    return;
+  }
+
   const imagesDir = prepareImagesDirectory(path.dirname(item.filePath));
 
   if (item.topicUrl) {
@@ -178,7 +223,7 @@ export async function refreshDownloadedItem(
       starring: details.starring ?? item.starring,
       productionDate: details.productionDate ?? item.productionDate,
       duration: details.duration ?? item.duration,
-      size: details.size ?? item.size,
+      size: diskSize(item.filePath) ?? item.size,
     };
 
     // Post image: re-download only when a fresh URL was parsed and it differs
