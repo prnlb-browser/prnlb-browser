@@ -600,6 +600,7 @@ editApplyPostImage.addEventListener("click", async () => {
     const card = downloadedContainer.querySelector(`.result-card[data-id="${editItem.id}"]`);
     if (card) {
       editItem.cachedImage = card.dataset.cachedImage || "";
+      editItem.postImage = card.dataset.postImage || "";
       const src = buildEditPostImageSrc(editItem.cachedImage);
       if (src) {
         editPostImageImg.src = src;
@@ -611,8 +612,16 @@ editApplyPostImage.addEventListener("click", async () => {
         editPostImagePlaceholder.style.display = "block";
       }
     }
-    editPostImageStatus.textContent = editItem.cachedImage ? "✅ Image updated" : "⚠️ Couldn't resolve — original kept";
-    editPostImageStatus.className = "status-msg " + (editItem.cachedImage ? "success" : "error");
+    if (editItem.cachedImage) {
+      editPostImageStatus.textContent = "✅ Image updated";
+      editPostImageStatus.className = "status-msg success";
+    } else if (editItem.postImage === url) {
+      editPostImageStatus.textContent = "⚠️ Couldn't resolve/download — URL saved without preview";
+      editPostImageStatus.className = "status-msg error";
+    } else {
+      editPostImageStatus.textContent = "⚠️ Couldn't resolve — original kept";
+      editPostImageStatus.className = "status-msg error";
+    }
   } catch (err) {
     editPostImageStatus.textContent = `Error: ${err.message}`;
     editPostImageStatus.className = "status-msg error";

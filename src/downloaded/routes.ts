@@ -346,6 +346,9 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
             fields.cachedImage = cached;
             fields.postImage = rawUrl;
             emit({ phase: "processing", message: `Post image saved.` });
+          } else if (!item.cachedImage) {
+            fields.postImage = rawUrl;
+            emit({ phase: "processing", message: `Couldn't resolve/download — saved URL only.` });
           } else {
             emit({ phase: "processing", message: `Failed to download post image — keeping existing.` });
           }
