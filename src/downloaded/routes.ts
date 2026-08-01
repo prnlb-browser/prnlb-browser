@@ -238,7 +238,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       const details = await fetchTopicDetails(topicUrl, app.loadConfig(), emit);
       const imagesDir = prepareImagesDirectory(path.dirname(item.filePath));
       const cachedImage = details.postImage
-        ? await downloadAndCacheImage(details.postImage, topicUrl, imagesDir)
+        ? await downloadAndCacheImage(details.postImage, item.filePath, imagesDir)
         : null;
       const title = await fetchTopicTitle(topicUrl).catch(() => null);
       // size is disk-derived and intentionally left unchanged here.
@@ -341,7 +341,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
         if (rawUrl) {
           const imagesDir = prepareImagesDirectory(path.dirname(item.filePath));
           emit({ phase: "processing", message: `Resolving post image...` });
-          const cached = await downloadAndCacheImage(rawUrl, item.topicUrl ?? rawUrl, imagesDir);
+          const cached = await downloadAndCacheImage(rawUrl, item.filePath, imagesDir);
           if (cached) {
             fields.cachedImage = cached;
             fields.postImage = rawUrl;

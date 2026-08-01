@@ -57,8 +57,12 @@ async function discoverTopic(
   }
 
   const postImage = details?.postImage ?? best.postImage ?? null;
+  // Cache key is the file path, not the topic URL: two downloaded items can
+  // legitimately share the same topic URL (multi-part releases, repacks),
+  // and keying on topicUrl would make them collide on the same cached image
+  // file on disk.
   const cachedImage = postImage
-    ? await downloadAndCacheImage(postImage, best.topicUrl, imagesDir)
+    ? await downloadAndCacheImage(postImage, filePath, imagesDir)
     : null;
 
   return {
@@ -230,7 +234,7 @@ export async function refreshDownloadedItem(
     // from what we already have cached.
     if (details.postImage && details.postImage !== item.postImage) {
       update.postImage = details.postImage;
-      const refreshed = await downloadAndCacheImage(details.postImage, item.topicUrl, imagesDir);
+      const refreshed = await downloadAndCacheImage(details.postImage, item.filePath, imagesDir);
       if (refreshed) update.cachedImage = refreshed;
     }
 
