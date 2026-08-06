@@ -11,6 +11,20 @@ const resultsClearTagsBtn = document.getElementById("results-clear-tags");
 // --- Results ---
 
 let allResultsKnownTags = []; // cached tag vocabulary (shared with Downloaded tab)
+let aiEnabled = false; // gates the "Analyze" menu item + rating badge — see loadAiEnabled()
+
+// Refreshed on every loadResults() so a Config-tab change (AI enabled/
+// disabled) takes effect on the next Results refresh without a page reload.
+async function loadAiEnabled() {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+    aiEnabled = !!cfg.ai?.enabled;
+  } catch {
+    aiEnabled = false;
+  }
+}
 
 // Toolbar tags filter — shared control (see src/core/ui/tags.js) so the
 // Results tab behaves identically to the Downloaded tab.
@@ -92,6 +106,7 @@ async function loadForums() {
 
 async function loadResults() {
   try {
+    await loadAiEnabled();
     const q = searchInput.value.trim();
     const forum = filterForum.value;
     const activeTagFilters = resultsTagFilter.getActiveFilters();
@@ -159,6 +174,7 @@ async function loadResults() {
             <div class="result-actions-menu-wrapper">
               <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
               <div class="popup-menu" data-popup-menu>
+                ${aiEnabled ? `<button class="popup-menu-item" data-action="analyze">🤖 Analyze</button>` : ""}
                 <button class="popup-menu-item" data-action="refresh-details">🔄 Refresh details</button>
                 <button class="popup-menu-item" data-action="edit">✏️ Edit</button>
                 <button class="popup-menu-item danger" data-action="delete">🗑 Delete</button>
@@ -173,6 +189,7 @@ async function loadResults() {
             <button class="btn btn-small btn-tag-add" data-action="add-tag" title="Add or assign tag">+ Add tag</button>
           </div>
         </div>
+        ${aiEnabled ? `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>` : ""}
       </div>`;
         },
       )
@@ -257,8 +274,53 @@ resultsContainer.addEventListener("click", async (e) => {
     await deleteTopicFromDb(topicUrl, card);
   } else if (action === "edit") {
     openResultsEditModal(card);
+  } else if (action === "analyze") {
+    await analyzeTopic(topicUrl, card);
   }
 });
+
+// Runs the title + screenshot AI analysis for one topic, persists the
+// resulting score, and updates the card's rating badge in place. The raw
+// analysis returned alongside the score is never persisted (see
+// docs/ai.spec.md §7) — it's only used here, transiently, as the badge's
+// debug tooltip for this page view.
+async function analyzeTopic(topicUrl, card) {
+  const badge = card.querySelector("[data-ai-rating-badge]");
+  const menuItem = card.querySelector('.popup-menu-item[data-action="analyze"]');
+  if (menuItem) {
+    menuItem.disabled = true;
+    menuItem.textContent = "🤖 Analyzing…";
+  }
+  if (badge) badge.textContent = "…";
+
+  try {
+    const res = await fetch("/api/results/item/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+    card.dataset.aiRating = data.aiRating == null ? "" : String(data.aiRating);
+    if (badge) {
+      badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
+      badge.title = JSON.stringify(
+        { aiRating: data.aiRating, titleAnalysis: data.titleAnalysis, screenshotAnalysis: data.screenshotAnalysis },
+        null,
+        2,
+      );
+    }
+  } catch (err) {
+    if (badge) badge.textContent = card.dataset.aiRating ? `${Math.round(card.dataset.aiRating)}%` : "–";
+    alert(`Failed to analyze: ${err.message}`);
+  } finally {
+    if (menuItem) {
+      menuItem.disabled = false;
+      menuItem.textContent = "🤖 Analyze";
+    }
+  }
+}
 
 // Event delegation for "Add tag" / "remove tag" — uses the shared Add Tag
 // modal (see src/core/ui/tags.js), targeting a topic by its topicUrl.

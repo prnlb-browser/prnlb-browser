@@ -127,6 +127,12 @@ input[type="url"] {
 
 input:focus { border-color: var(--accent); }
 
+/* Dimmed field group, e.g. AI provider settings while the feature is off */
+.field-group--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* Toggle switch */
 .toggle {
   position: relative;
@@ -215,6 +221,17 @@ input:focus { border-color: var(--accent); }
 }
 .forum-entry input { flex: 1; }
 .forum-entry .btn { flex-shrink: 0; }
+
+.rule-entry {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.rule-entry select[data-field="type"] { flex: 0 0 190px; }
+.rule-entry [data-field="value"] { flex: 1; }
+.rule-entry input[data-field="weight"] { flex: 0 0 80px; }
+.rule-entry .btn { flex-shrink: 0; }
 
 /* --- Progress --- */
 .progress-bar-container {
@@ -416,6 +433,28 @@ input:focus { border-color: var(--accent); }
 
 .popup-menu-item.danger:hover {
   background: #7f1d1d;
+}
+
+.popup-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- AI rating badge --- */
+.ai-rating-badge {
+  position: absolute;
+  bottom: 0.6rem;
+  right: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  z-index: 5;
+  cursor: default;
+  line-height: 1.4;
 }
 
 .empty-state {

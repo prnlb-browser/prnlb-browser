@@ -1,6 +1,16 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Config } from "../core/types.js";
+import type { AiConfig, Config } from "../core/types.js";
+
+export function getDefaultAiConfig(): AiConfig {
+  return {
+    enabled: false,
+    provider: "ollama",
+    ollama: { baseUrl: "http://localhost:11434", textModel: "qwen2.5:0.5b", visionModel: "qwen2.5vl:3b" },
+    openrouter: { apiKey: "", textModel: "", visionModel: "" },
+    scoring: { rules: [] },
+  };
+}
 
 export function getDefaultConfig(): Config {
   return {
@@ -11,6 +21,7 @@ export function getDefaultConfig(): Config {
     delay: { min: 2000, max: 5000 },
     dbPath: "data.db",
     downloadedFolder: "",
+    ai: getDefaultAiConfig(),
   };
 }
 
@@ -23,7 +34,20 @@ export class ConfigStore {
 
   load(): Config {
     try {
-      return JSON.parse(fs.readFileSync(this.path, "utf-8")) as Config;
+      const parsed = JSON.parse(fs.readFileSync(this.path, "utf-8")) as Partial<Config>;
+      // Backfill `ai` for configs saved before this feature existed, so the
+      // rest of the app can treat Config.ai as always present.
+      const defaultAi = getDefaultAiConfig();
+      return {
+        ...parsed,
+        ai: {
+          ...defaultAi,
+          ...parsed.ai,
+          ollama: { ...defaultAi.ollama, ...parsed.ai?.ollama },
+          openrouter: { ...defaultAi.openrouter, ...parsed.ai?.openrouter },
+          scoring: { ...defaultAi.scoring, ...parsed.ai?.scoring },
+        },
+      } as Config;
     } catch {
       return getDefaultConfig();
     }

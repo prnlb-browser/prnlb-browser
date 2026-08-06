@@ -16,6 +16,7 @@ const CREATE_TABLE = `
     sourceForum TEXT,
     hidden    INTEGER NOT NULL DEFAULT 0,
     tags      TEXT NOT NULL DEFAULT '[]',
+    aiRating  REAL,
     createdAt TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `;
@@ -45,15 +46,22 @@ export class TopicStore {
     } catch {
       // Column already exists — safe to ignore.
     }
+
+    // Idempotent column addition for older schemas (pre-AI-rating).
+    try {
+      this.db.exec("ALTER TABLE topics ADD COLUMN aiRating REAL");
+    } catch {
+      // Column already exists — safe to ignore.
+    }
   }
 
   insert(topic: TopicData): boolean {
     const tagsJson = JSON.stringify(normalizeTags(topic.tags));
     const stmt = this.db.prepare(`
-      INSERT OR IGNORE INTO topics (topicUrl, title, postImage, starring, productionDate, duration, size, torrentUrl, sourceForum, hidden, tags)
-      VALUES (@topicUrl, @title, @postImage, @starring, @productionDate, @duration, @size, @torrentUrl, @sourceForum, @hidden, @tags)
+      INSERT OR IGNORE INTO topics (topicUrl, title, postImage, starring, productionDate, duration, size, torrentUrl, sourceForum, hidden, tags, aiRating)
+      VALUES (@topicUrl, @title, @postImage, @starring, @productionDate, @duration, @size, @torrentUrl, @sourceForum, @hidden, @tags, @aiRating)
     `);
-    return stmt.run({ ...topic, tags: tagsJson }).changes > 0;
+    return stmt.run({ ...topic, tags: tagsJson, aiRating: topic.aiRating ?? null }).changes > 0;
   }
 
   exists(topicUrl: string): boolean {
@@ -99,6 +107,10 @@ export class TopicStore {
     return this.db
       .prepare("UPDATE topics SET tags = ? WHERE topicUrl = ?")
       .run(JSON.stringify(normalizeTags(tags)), topicUrl).changes > 0;
+  }
+
+  setAiRating(topicUrl: string, rating: number | null): boolean {
+    return this.db.prepare("UPDATE topics SET aiRating = ? WHERE topicUrl = ?").run(rating, topicUrl).changes > 0;
   }
 
   getAllTags(): ReturnType<typeof mergeTagLists> {

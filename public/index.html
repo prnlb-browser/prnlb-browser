@@ -45,6 +45,53 @@
           <input type="number" id="cfg-delay-max" min="500" max="30000" value="5000" />
         </div>
       </div>
+      <div class="card">
+        <h2>AI Topic Rating</h2>
+        <div class="form-row">
+          <label>Enable AI rating</label>
+          <input type="checkbox" id="cfg-ai-enabled" />
+        </div>
+        <div class="form-row">
+          <label>Provider</label>
+          <select id="cfg-ai-provider">
+            <option value="ollama">Local (Ollama)</option>
+            <option value="openrouter">Cloud (OpenRouter)</option>
+          </select>
+        </div>
+        <div id="ai-ollama-fields">
+          <div class="form-row">
+            <label>Ollama base URL</label>
+            <input type="url" id="cfg-ai-ollama-url" placeholder="http://localhost:11434" />
+          </div>
+          <div class="form-row">
+            <label>Text model</label>
+            <input type="text" id="cfg-ai-ollama-text-model" placeholder="qwen2.5:0.5b" />
+          </div>
+          <div class="form-row">
+            <label>Vision model</label>
+            <input type="text" id="cfg-ai-ollama-vision-model" placeholder="qwen2.5vl:3b" />
+          </div>
+        </div>
+        <div id="ai-openrouter-fields">
+          <div class="form-row">
+            <label>API key</label>
+            <input type="password" id="cfg-ai-openrouter-key" placeholder="sk-or-..." />
+          </div>
+          <div class="form-row">
+            <label>Text model</label>
+            <input type="text" id="cfg-ai-openrouter-text-model" placeholder="openai/gpt-4o-mini" />
+          </div>
+          <div class="form-row">
+            <label>Vision model</label>
+            <input type="text" id="cfg-ai-openrouter-vision-model" placeholder="openai/gpt-4o-mini" />
+          </div>
+        </div>
+      </div>
+      <div class="card" id="ai-scoring-card">
+        <h2>AI Scoring Rules</h2>
+        <div id="ai-rules-list"></div>
+        <button id="btn-add-rule" class="btn btn-small">+ Add rule</button>
+      </div>
       <div class="actions">
         <button id="btn-save-config" class="btn btn-primary">💾 Save Config</button>
         <button id="btn-export-csv" class="btn btn-secondary">📥 Export Topics CSV</button>

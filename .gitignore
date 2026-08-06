@@ -80,3 +80,5 @@ config.json
 data.db
 data.db-wal
 data.db-shm
+
+docs/*.spec.md

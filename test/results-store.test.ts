@@ -113,3 +113,50 @@ describe("TopicStore tags", () => {
     }
   });
 });
+
+describe("TopicStore aiRating", () => {
+  it("defaults to null and can be set/read via setAiRating/getByUrl", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert(baseTopic("u1", "A"));
+      assert.equal(store.getByUrl("u1")!.aiRating, null);
+
+      const ok = store.setAiRating("u1", 72);
+      assert.equal(ok, true);
+      assert.equal(store.getByUrl("u1")!.aiRating, 72);
+
+      store.setAiRating("u1", null);
+      assert.equal(store.getByUrl("u1")!.aiRating, null);
+
+      assert.equal(store.setAiRating("missing-url", 10), false);
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("migrates an older topics table (no aiRating column) without losing rows", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const Database = require("better-sqlite3");
+      const db = new Database(dbPath);
+      db.exec(
+        "CREATE TABLE topics (topicUrl TEXT PRIMARY KEY, title TEXT NOT NULL, postImage TEXT, starring TEXT, productionDate TEXT, duration TEXT, size TEXT, torrentUrl TEXT, sourceForum TEXT, hidden INTEGER NOT NULL DEFAULT 0, tags TEXT NOT NULL DEFAULT '[]', createdAt TEXT NOT NULL DEFAULT (datetime('now')))",
+      );
+      db.prepare("INSERT INTO topics (topicUrl, title, hidden) VALUES (?, ?, ?)").run("legacy-url", "Legacy", 0);
+      db.close();
+
+      const store = new TopicStore(dbPath);
+      const rows = store.getAll();
+      assert.equal(rows.length, 1, "legacy row must survive schema migration");
+      assert.equal(rows[0]!.aiRating, null, "aiRating column defaults to null");
+      assert.equal(store.setAiRating("legacy-url", 40), true);
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

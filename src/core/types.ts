@@ -1,5 +1,58 @@
 import type { Tag } from "./tags.js";
 
+// AI topic rating (see docs/ai.spec.md). Both provider sub-objects are
+// always present even though only `provider`'s settings are used, so the
+// Config tab doesn't lose the other provider's typed-in values when the
+// user switches between them.
+export type AiProvider = "ollama" | "openrouter";
+
+// Coarse, closed-enum performer characteristics extracted by the screenshot
+// analyzer (src/ai/screenshot-analyzer.ts). Kept here (not in src/ai/) so
+// AiScoreRule/AiConfig can reference them without core depending on a
+// feature folder. "unknown" is an explicit member rather than null so the
+// whole set stays enum-constrained for structured model output.
+export type HairColor = "blonde" | "brunette" | "black" | "red" | "colorful" | "unknown";
+export type HairLength = "bald" | "short" | "shoulder-length" | "long" | "unknown";
+export type BodyType = "slim" | "athletic" | "average" | "curvy" | "bbw" | "muscular" | "unknown";
+export type AgeBracket = "18-22" | "23-27" | "28-35" | "36-45" | "46+" | "unknown";
+export type Race = "asian" | "ebony" | "caucasian" | "latina" | "middle-eastern" | "mixed" | "unknown";
+export type BreastSize = "small" | "medium" | "large" | "extra-large" | "unknown";
+
+// Other than "unknown" (deliberately shared, and excluded from the scoring
+// rule editor for that reason — see AiScoreRule), the six enums above share
+// no literal values, so a single value (e.g. "blonde") unambiguously
+// identifies which characteristic it belongs to — AiScoreRule doesn't need
+// a separate field selector. Renamed HairLength's "medium" to
+// "shoulder-length" and Race's "black" to "ebony" specifically to avoid
+// colliding with BreastSize's "medium" and HairColor's "black".
+export type PerformerCharacteristicValue = HairColor | HairLength | BodyType | AgeBracket | Race | BreastSize;
+
+// A user-configured rule contributing to a topic's AI rating (see
+// docs/ai.spec.md §8). "tag" rules do a case-insensitive substring match
+// against combined title+screenshot tags; "performer-characteristic" rules
+// do an exact match against any performer's characteristic fields.
+export type AiScoreRule =
+  | { type: "tag"; value: string; weight: number }
+  | { type: "performer-characteristic"; value: PerformerCharacteristicValue; weight: number };
+
+export interface AiConfig {
+  enabled: boolean;
+  provider: AiProvider;
+  ollama: {
+    baseUrl: string;
+    textModel: string;
+    visionModel: string;
+  };
+  openrouter: {
+    apiKey: string;
+    textModel: string;
+    visionModel: string;
+  };
+  scoring: {
+    rules: AiScoreRule[];
+  };
+}
+
 export interface Config {
   credentials: { username: string; password: string };
   forums: { url: string; label: string }[];
@@ -8,6 +61,7 @@ export interface Config {
   delay: { min: number; max: number };
   dbPath: string;
   downloadedFolder?: string;
+  ai: AiConfig;
 }
 
 export interface TopicData {
@@ -24,6 +78,10 @@ export interface TopicData {
   // Free-form tags assigned by the user. Shares the same {name, color} model
   // and the same tag vocabulary as DownloadedItem.tags — see src/core/tags.ts.
   tags?: DownloadedTag[] | null;
+  // 0-100 AI rating from the configured scoring rules (see docs/ai.spec.md
+  // §7/§8), or null if never analyzed. Only the score is persisted — the
+  // raw title/screenshot analysis that produced it is not stored.
+  aiRating?: number | null;
 }
 
 export interface CrawlProgress {
