@@ -91,6 +91,7 @@
         <h2>AI Scoring Rules</h2>
         <div id="ai-rules-list"></div>
         <button id="btn-add-rule" class="btn btn-small">+ Add rule</button>
+        <button id="btn-calc-rules-by-downloads" class="btn btn-small">🎲 Calculate by Downloads</button>
       </div>
       <div class="actions">
         <button id="btn-save-config" class="btn btn-primary">💾 Save Config</button>
@@ -394,6 +395,36 @@
       <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;padding:0.75rem 1rem;border-top:1px solid var(--border)">
         <button class="btn btn-small" id="add-tag-cancel" type="button">Cancel</button>
         <button class="btn btn-primary" id="add-tag-save" type="button">🏷️ Add tag</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config: Calculate AI Scoring Rules by Downloads Modal -->
+  <div id="ai-suggest-rules-modal" class="modal-overlay" hidden>
+    <div class="modal-content" style="max-width: 520px">
+      <div class="modal-header">
+        <span class="modal-title">🎲 Calculate Rules by Downloads</span>
+        <button id="ai-suggest-rules-close" class="btn btn-small modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Sample size</label>
+          <input type="range" id="ai-suggest-rules-count" min="1" max="1" value="1" style="flex:1" />
+          <span id="ai-suggest-rules-count-label" style="min-width:3ch;text-align:right">1</span>
+        </div>
+        <div class="form-row">
+          <label>Number of rules</label>
+          <input type="number" id="ai-suggest-rules-rule-count" min="1" max="100" value="10" />
+        </div>
+        <div id="ai-suggest-rules-status" class="status-msg"></div>
+        <div id="ai-suggest-rules-progress-container" class="progress-bar-container" hidden>
+          <div id="ai-suggest-rules-progress-bar" class="progress-bar" style="width:0%"></div>
+        </div>
+        <div id="ai-suggest-rules-log" class="log-output" style="max-height:160px;margin-top:0.5rem;display:none"></div>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;padding:0.75rem 1rem;border-top:1px solid var(--border)">
+        <button class="btn btn-small" id="ai-suggest-rules-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="ai-suggest-rules-run" type="button">▶ Run</button>
       </div>
     </div>
   </div>
