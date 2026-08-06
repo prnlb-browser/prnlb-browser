@@ -3,7 +3,7 @@ import { scrapeTopicImages } from "../core/images/topic-scraper.js";
 import { resolverRegistry } from "../core/images/registry.js";
 import { downloadImageViaBrowser } from "../core/images/browser-download.js";
 import type { AiProviderClient } from "./providers/types.js";
-import type { ScreenshotAnalysis } from "./types.js";
+import type { PerformerCharacteristics, ScreenshotAnalysis } from "./types.js";
 
 // See docs/ai.spec.md §6.1 — bounds local inference time / OpenRouter cost;
 // a coarse characterization pass doesn't need every screenshot in a post.
@@ -27,11 +27,28 @@ const CHARACTERISTIC_SCHEMA = {
   additionalProperties: false,
 };
 
+// The model reports gender per performer — including male performers — so
+// scene composition (headcount, FFM/MMF, etc.) can be derived deterministic-
+// ally from real counts rather than asked of the model as free-form
+// reasoning (unreliable at this model size). Gender itself, and every male
+// performer, is stripped back out before this becomes the final
+// ScreenshotAnalysis — see RawPerformer/postProcess below and
+// docs/ai.spec.md §6.6: only female performers feed the scoring output.
+const RAW_PERFORMER_SCHEMA = {
+  type: "object",
+  properties: {
+    gender: { type: "string", enum: ["female", "male"] },
+    ...CHARACTERISTIC_SCHEMA.properties,
+  },
+  required: ["gender", ...CHARACTERISTIC_SCHEMA.required],
+  additionalProperties: false,
+};
+
 const SCHEMA = {
   type: "object",
   properties: {
     tags: { type: "array", items: { type: "string" } },
-    performers: { type: "array", items: CHARACTERISTIC_SCHEMA },
+    performers: { type: "array", items: RAW_PERFORMER_SCHEMA },
   },
   required: ["tags", "performers"],
   additionalProperties: false,
@@ -40,26 +57,84 @@ const SCHEMA = {
 const SYSTEM_PROMPT = [
   "You analyze screenshots taken from an adult video, all from the same scene.",
   "Output must match the given JSON schema exactly.",
-  '"tags": short lowercase keywords describing scene/content visible across the images (setting, acts, camera angle, etc).',
-  '"performers": one entry per visually distinct performer, ordered by how prominent/on-screen they are — the same performer appearing in multiple screenshots should only produce one entry.',
-  "Every characteristic field is a fixed enum — if a value can't be determined from the images, use \"unknown\" rather than guessing.",
+  '"tags": short lowercase keywords describing scene/content visible across the images (setting, acts, camera angle, etc). Do not include performer headcount or gender-composition words like "threesome"/"gangbang"/"FFM"/"MMF" — those are added separately from your performer list, do not guess them yourself.',
+  '"performers": one entry per visually distinct performer of ANY gender, ordered by how prominent/on-screen they are — the same performer appearing in multiple screenshots should only produce one entry. Include male performers too; they are filtered out later, but an accurate headcount and gender per performer matters.',
+  '"gender": "female" or "male" for each performer — required, and the main reason male performers are listed at all.',
+  "Every characteristic field is a fixed enum — if a value can't be determined from the images, use \"unknown\" rather than guessing. For a male performer, characteristics like breastSize don't apply — use \"unknown\" for those rather than guessing.",
   '"age" is a rough visual estimate of adult age range only, never a verified fact.',
   "If no performer is clearly visible in any image, return an empty performers array.",
 ].join(" ");
 
 const USER_PROMPT = "Analyze these screenshots and describe them per the schema.";
 
+export interface RawPerformer extends PerformerCharacteristics {
+  gender: "female" | "male";
+}
+
+export interface RawScreenshotResult {
+  tags: string[];
+  performers: RawPerformer[];
+}
+
 export async function analyzeScreenshots(topicUrl: string, client: AiProviderClient): Promise<ScreenshotAnalysis> {
   const images = await fetchAndResizeScreenshots(topicUrl);
   if (images.length === 0) {
     return { tags: [], performers: [] };
   }
-  return client.completeJson<ScreenshotAnalysis>({
+  const raw = await client.completeJson<RawScreenshotResult>({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: USER_PROMPT,
     images,
     schema: SCHEMA,
   });
+  return postProcess(raw);
+}
+
+// Derives scene-composition tags from the real (model-reported) headcount
+// and gender split, deterministically rather than asking the model to
+// reason about it — see docs/ai.spec.md §6.6 for the exact thresholds and
+// why. Then drops gender and every male performer: only female performers
+// are exposed to scoring (the app's characteristic vocabulary — hair,
+// breast size, etc. — is female-oriented anyway).
+// Exported for direct unit testing — analyzeScreenshots() itself isn't
+// unit tested (it also drives real screenshot scraping over the network/
+// Playwright, same reasoning as the rest of this file), but this
+// deterministic post-processing step benefits from real coverage.
+export function postProcess(raw: RawScreenshotResult): ScreenshotAnalysis {
+  const performers = raw.performers ?? [];
+  const femaleCount = performers.filter((p) => p.gender === "female").length;
+  const maleCount = performers.filter((p) => p.gender === "male").length;
+  const total = performers.length;
+
+  const sceneTags: string[] = [];
+  if (total === 3) {
+    sceneTags.push("Threesome");
+    if (femaleCount === 2 && maleCount === 1) sceneTags.push("FFM");
+    else if (maleCount === 2 && femaleCount === 1) sceneTags.push("MMF");
+  } else if (total > 3) {
+    sceneTags.push("Gangbang");
+  }
+
+  const femalePerformers: PerformerCharacteristics[] = performers
+    .filter((p) => p.gender === "female")
+    .map(({ gender: _gender, ...characteristics }) => characteristics);
+
+  return {
+    tags: mergeTags(raw.tags ?? [], sceneTags),
+    performers: femalePerformers,
+  };
+}
+
+function mergeTags(tags: string[], extra: string[]): string[] {
+  const seen = new Set(tags.map((t) => t.toLowerCase()));
+  const merged = [...tags];
+  for (const tag of extra) {
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(tag);
+  }
+  return merged;
 }
 
 async function fetchAndResizeScreenshots(topicUrl: string): Promise<Buffer[]> {

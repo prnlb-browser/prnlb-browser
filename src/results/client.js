@@ -186,7 +186,6 @@ async function loadResults() {
             <div class="result-actions-menu-wrapper">
               <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
               <div class="popup-menu" data-popup-menu>
-                ${resultsAiEnabled ? `<button class="popup-menu-item" data-action="analyze">🤖 Analyze</button>` : ""}
                 <button class="popup-menu-item" data-action="refresh-details">🔄 Refresh details</button>
                 <button class="popup-menu-item" data-action="edit">✏️ Edit</button>
                 <button class="popup-menu-item danger" data-action="delete">🗑 Delete</button>
@@ -194,6 +193,7 @@ async function loadResults() {
             </div>
             ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
             ${t.postImage ? `<button class="btn btn-small" data-action="screens">🖼 Screens</button>` : ""}
+            ${resultsAiEnabled ? `<button class="btn btn-small" data-action="analyze">🤖 Analyze</button>` : ""}
             <button class="btn btn-small btn-hide" data-action="toggle-hide">${isHidden ? "👁 Show" : "🙈 Hide"}</button>
           </div>
           <div class="item-tags" data-item-tags>
@@ -288,9 +288,20 @@ resultsContainer.addEventListener("click", async (e) => {
     await deleteTopicFromDb(topicUrl, card);
   } else if (action === "edit") {
     openResultsEditModal(card);
-  } else if (action === "analyze") {
-    await analyzeTopic(topicUrl, card);
   }
+});
+
+// Event delegation for the "Analyze" button — a standalone button next to
+// Screens, not inside the "..." popup menu (it's a common enough action to
+// deserve one click rather than two).
+resultsContainer.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-action='analyze']");
+  if (!btn) return;
+  const card = btn.closest(".result-card");
+  if (!card) return;
+  const topicUrl = card.dataset.url;
+  if (!topicUrl) return;
+  await analyzeTopic(topicUrl, card);
 });
 
 // Runs the title + screenshot AI analysis for one topic, persists the
@@ -300,10 +311,10 @@ resultsContainer.addEventListener("click", async (e) => {
 // debug tooltip for this page view.
 async function analyzeTopic(topicUrl, card) {
   const badge = card.querySelector("[data-ai-rating-badge]");
-  const menuItem = card.querySelector('.popup-menu-item[data-action="analyze"]');
-  if (menuItem) {
-    menuItem.disabled = true;
-    menuItem.textContent = "🤖 Analyzing…";
+  const analyzeBtn = card.querySelector('[data-action="analyze"]');
+  if (analyzeBtn) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = "🤖 Analyzing…";
   }
   if (badge) badge.textContent = "…";
 
@@ -329,9 +340,9 @@ async function analyzeTopic(topicUrl, card) {
     if (badge) badge.textContent = card.dataset.aiRating ? `${Math.round(card.dataset.aiRating)}%` : "–";
     alert(`Failed to analyze: ${err.message}`);
   } finally {
-    if (menuItem) {
-      menuItem.disabled = false;
-      menuItem.textContent = "🤖 Analyze";
+    if (analyzeBtn) {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = "🤖 Analyze";
     }
   }
 }
