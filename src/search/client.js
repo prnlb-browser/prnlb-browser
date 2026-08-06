@@ -494,7 +494,9 @@ btnAnalyzeSearch.addEventListener("click", async () => {
     const res = await fetch("/api/search/analyze-batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: lastSearchResults.map((t) => ({ topicUrl: t.topicUrl, title: t.title })) }),
+      body: JSON.stringify({
+        items: lastSearchResults.map((t) => ({ topicUrl: t.topicUrl, title: t.title, starring: t.starring ?? null })),
+      }),
     });
 
     const reader = res.body.getReader();

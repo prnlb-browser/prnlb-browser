@@ -11,7 +11,7 @@ export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, 
   // same "computed, shown, not stored" idea as the Results tab's debug
   // tooltip (see docs/ai.spec.md §7/§10).
   if (url.pathname === "/api/search/analyze-batch" && method === "POST") {
-    const { items } = await readJson<{ items: { topicUrl: string; title: string }[] }>(req);
+    const { items } = await readJson<{ items: { topicUrl: string; title: string; starring?: string | null }[] }>(req);
     const config = app.loadConfig();
     if (!config.ai.enabled) {
       json(res, { error: "AI rating is not enabled" }, 400);
@@ -25,9 +25,10 @@ export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, 
     const emit = startSse(res);
     const batchItems: BatchAnalyzeItem[] = items
       .filter((item) => item.topicUrl && item.title)
-      .map((item) => ({ key: item.topicUrl, title: item.title, topicUrl: item.topicUrl }));
+      .map((item) => ({ key: item.topicUrl, title: item.title, topicUrl: item.topicUrl, starring: item.starring ?? null }));
 
-    await analyzeBatch(batchItems, config, emit);
+    const actresses = app.getActressStore().getAll();
+    await analyzeBatch(batchItems, config, actresses, emit);
     emit({ phase: "done", message: `Analyzed ${batchItems.length}/${items.length} item(s)`, analyzed: batchItems.length, total: items.length });
     res.end();
     return true;

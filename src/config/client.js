@@ -65,25 +65,57 @@ const PERFORMER_CHARACTERISTIC_OPTIONS = [
   { label: "Breast size", values: ["small", "medium", "large", "extra-large"] },
 ];
 
+// Cached actress catalogue for the "actress" rule type's value dropdown —
+// unlike PERFORMER_CHARACTERISTIC_OPTIONS this is user data, not a fixed
+// enum, so it's fetched rather than hardcoded. Re-renders the rule list
+// once loaded so rows opened before the fetch resolved still get options.
+let allActresses = [];
+async function loadKnownActresses() {
+  try {
+    const res = await fetch("/api/actresses");
+    if (res.ok) allActresses = await res.json();
+  } catch {
+    allActresses = [];
+  } finally {
+    if (config) renderRules();
+  }
+}
+loadKnownActresses();
+
 function renderRules() {
   rulesList.innerHTML = "";
   if (!config) return;
   config.ai.scoring.rules.forEach((rule, i) => {
     const div = document.createElement("div");
     div.className = "rule-entry";
-    const valueField =
-      rule.type === "tag"
-        ? `<input type="text" data-field="value" placeholder="e.g. anal" value="${esc(rule.value)}" />`
-        : `<select data-field="value">${PERFORMER_CHARACTERISTIC_OPTIONS.map(
-            (group) =>
-              `<optgroup label="${esc(group.label)}">${group.values
-                .map((v) => `<option value="${esc(v)}"${v === rule.value ? " selected" : ""}>${esc(v)}</option>`)
-                .join("")}</optgroup>`,
-          ).join("")}</select>`;
+    let valueField;
+    if (rule.type === "tag") {
+      valueField = `<input type="text" data-field="value" placeholder="e.g. anal" value="${esc(rule.value)}" />`;
+    } else if (rule.type === "performer-characteristic") {
+      valueField = `<select data-field="value">${PERFORMER_CHARACTERISTIC_OPTIONS.map(
+        (group) =>
+          `<optgroup label="${esc(group.label)}">${group.values
+            .map((v) => `<option value="${esc(v)}"${v === rule.value ? " selected" : ""}>${esc(v)}</option>`)
+            .join("")}</optgroup>`,
+      ).join("")}</select>`;
+    } else {
+      const actressOptions = allActresses
+        .map(
+          (a) =>
+            `<option value="${esc(a.name)}"${a.name === rule.value ? " selected" : ""}>${a.isFavorite ? "★ " : ""}${esc(a.name)}</option>`,
+        )
+        .join("");
+      valueField = `<select data-field="value">
+        <option value="favorite"${rule.value === "favorite" ? " selected" : ""}>★ Favorite (any)</option>
+        <option value="saved"${rule.value === "saved" ? " selected" : ""}>Saved (any known actress)</option>
+        ${actressOptions ? `<optgroup label="Specific actress">${actressOptions}</optgroup>` : ""}
+      </select>`;
+    }
     div.innerHTML = `
       <select data-field="type">
         <option value="tag"${rule.type === "tag" ? " selected" : ""}>Tag contains</option>
         <option value="performer-characteristic"${rule.type === "performer-characteristic" ? " selected" : ""}>Performer characteristic</option>
+        <option value="actress"${rule.type === "actress" ? " selected" : ""}>Actress</option>
       </select>
       <span data-value-slot></span>
       <input type="number" data-field="weight" min="-1" max="1" step="0.1" value="${rule.weight}" />
@@ -92,11 +124,9 @@ function renderRules() {
     div.querySelector("[data-value-slot]").outerHTML = valueField;
     div.querySelector(`[data-field="type"]`).addEventListener("change", (e) => {
       const newType = e.target.value;
-      config.ai.scoring.rules[i] = {
-        type: newType,
-        value: newType === "tag" ? "" : PERFORMER_CHARACTERISTIC_OPTIONS[0].values[0],
-        weight: rule.weight,
-      };
+      const defaultValue =
+        newType === "tag" ? "" : newType === "performer-characteristic" ? PERFORMER_CHARACTERISTIC_OPTIONS[0].values[0] : "favorite";
+      config.ai.scoring.rules[i] = { type: newType, value: defaultValue, weight: rule.weight };
       renderRules();
     });
     div.querySelector(`[data-field="value"]`).addEventListener(rule.type === "tag" ? "input" : "change", (e) => {

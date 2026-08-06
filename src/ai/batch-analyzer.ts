@@ -1,14 +1,17 @@
-import type { Config } from "../core/types.js";
+import type { Actress, Config } from "../core/types.js";
 import { getTextClient, getVisionClient } from "./providers/index.js";
 import { analyzeTitle } from "./title-analyzer.js";
 import { analyzeScreenshots } from "./screenshot-analyzer.js";
 import { computeScore } from "./scoring.js";
+import { matchActresses } from "../core/actress-match.js";
 
 export interface BatchAnalyzeItem {
   /** Caller-defined identity used to report progress and apply the result — a topicUrl, a DB id, whatever the caller keys its own items by. */
   key: string;
   title: string;
   topicUrl: string;
+  /** Cast text, for "actress" scoring rules (src/core/actress-match.ts). Null if unknown. */
+  starring: string | null;
 }
 
 export type BatchAnalyzeProgress =
@@ -28,6 +31,7 @@ export type BatchAnalyzeProgress =
 export async function analyzeBatch(
   items: BatchAnalyzeItem[],
   config: Config,
+  actresses: Actress[],
   onProgress: (event: BatchAnalyzeProgress) => void,
 ): Promise<void> {
   onProgress({ phase: "start", total: items.length, message: `Analyzing ${items.length} item(s)...` });
@@ -39,7 +43,8 @@ export async function analyzeBatch(
         analyzeTitle(item.title, getTextClient(config)),
         analyzeScreenshots(item.topicUrl, getVisionClient(config)),
       ]);
-      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis);
+      const actressContext = matchActresses(item.title, item.starring, actresses);
+      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
       onProgress({ phase: "item-done", current: i + 1, total: items.length, key: item.key, aiRating });
     } catch (error) {
       onProgress({

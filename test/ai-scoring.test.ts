@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { computeScore } from "../src/ai/scoring.js";
 import type { ScreenshotAnalysis, TitleAnalysis } from "../src/ai/types.js";
+import type { ActressMatchContext } from "../src/core/actress-match.js";
 
 function title(overrides: Partial<TitleAnalysis> = {}): TitleAnalysis {
   return { actresses: [], tags: [], quality: "unknown", ...overrides };
@@ -83,5 +84,34 @@ describe("computeScore", () => {
       screenshots(),
     );
     assert.equal(score, 50);
+  });
+
+  it("defaults the actress context to no matches when omitted, so 'actress' rules never match", () => {
+    const score = computeScore([{ type: "actress", value: "saved", weight: 1 }], title(), screenshots());
+    assert.equal(score, 50);
+  });
+
+  it("matches an 'actress' rule with value 'favorite' only when a favorite actress was matched", () => {
+    const noFav: ActressMatchContext = { matchedNames: ["Jane Doe"], matchedFavoriteNames: [] };
+    const withFav: ActressMatchContext = { matchedNames: ["Jane Doe"], matchedFavoriteNames: ["Jane Doe"] };
+    const rules = [{ type: "actress" as const, value: "favorite", weight: 1 }];
+    assert.equal(computeScore(rules, title(), screenshots(), noFav), 50);
+    assert.equal(computeScore(rules, title(), screenshots(), withFav), 100);
+  });
+
+  it("matches an 'actress' rule with value 'saved' whenever any catalogued actress was matched", () => {
+    const none: ActressMatchContext = { matchedNames: [], matchedFavoriteNames: [] };
+    const some: ActressMatchContext = { matchedNames: ["Jane Doe"], matchedFavoriteNames: [] };
+    const rules = [{ type: "actress" as const, value: "saved", weight: 1 }];
+    assert.equal(computeScore(rules, title(), screenshots(), none), 50);
+    assert.equal(computeScore(rules, title(), screenshots(), some), 100);
+  });
+
+  it("matches an 'actress' rule naming a specific actress, case-insensitively, against matchedNames", () => {
+    const ctx: ActressMatchContext = { matchedNames: ["Jane Doe"], matchedFavoriteNames: [] };
+    const matching = computeScore([{ type: "actress", value: "jane doe", weight: 1 }], title(), screenshots(), ctx);
+    const nonMatching = computeScore([{ type: "actress", value: "Someone Else", weight: 1 }], title(), screenshots(), ctx);
+    assert.equal(matching, 100);
+    assert.equal(nonMatching, 50);
   });
 });

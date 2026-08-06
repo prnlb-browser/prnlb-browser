@@ -30,10 +30,18 @@ export type PerformerCharacteristicValue = HairColor | HairLength | BodyType | A
 // A user-configured rule contributing to a topic's AI rating (see
 // docs/ai.spec.md §8). "tag" rules do a case-insensitive substring match
 // against combined title+screenshot tags; "performer-characteristic" rules
-// do an exact match against any performer's characteristic fields.
+// do an exact match against any performer's characteristic fields;
+// "actress" rules match against the Actress catalogue (src/actresses/) via
+// the item's title+Cast text — see src/core/actress-match.ts. `value` is
+// either the literal "favorite" (any favorited actress appears), the
+// literal "saved" (any catalogued actress appears, favorite or not), or a
+// specific actress's exact name (case-insensitive) — the rule editor's
+// dropdown only ever offers those three shapes, but the type itself is
+// just `string` since the catalogue is user data, not a fixed enum.
 export type AiScoreRule =
   | { type: "tag"; value: string; weight: number }
-  | { type: "performer-characteristic"; value: PerformerCharacteristicValue; weight: number };
+  | { type: "performer-characteristic"; value: PerformerCharacteristicValue; weight: number }
+  | { type: "actress"; value: string; weight: number };
 
 export interface AiConfig {
   enabled: boolean;

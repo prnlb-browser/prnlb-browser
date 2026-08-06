@@ -144,12 +144,13 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
     for (const id of ids) {
       const item = store.getById(id);
       if (item?.topicUrl) {
-        batchItems.push({ key: String(id), title: item.title ?? item.fileName, topicUrl: item.topicUrl });
+        batchItems.push({ key: String(id), title: item.title ?? item.fileName, topicUrl: item.topicUrl, starring: item.starring });
       }
     }
 
+    const actresses = app.getActressStore().getAll();
     let analyzed = 0;
-    await analyzeBatch(batchItems, config, (event) => {
+    await analyzeBatch(batchItems, config, actresses, (event) => {
       if (event.phase === "item-done") {
         store.setAiRating(Number(event.key), event.aiRating);
         analyzed++;

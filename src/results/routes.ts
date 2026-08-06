@@ -8,6 +8,7 @@ import { analyzeTitle } from "../ai/title-analyzer.js";
 import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
 import { computeScore } from "../ai/scoring.js";
 import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
+import { matchActresses } from "../core/actress-match.js";
 import type { TopicSort } from "./store.js";
 
 function escapeCsv(value: unknown): string {
@@ -182,7 +183,8 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
         analyzeTitle(topic.title, getTextClient(config)),
         analyzeScreenshots(topicUrl, getVisionClient(config)),
       ]);
-      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis);
+      const actressContext = matchActresses(topic.title, topic.starring, app.getActressStore().getAll());
+      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
       store.setAiRating(topicUrl, aiRating);
       // titleAnalysis/screenshotAnalysis are returned for the client's
       // debug tooltip only — per docs/ai.spec.md §7, only aiRating is
@@ -213,11 +215,12 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
     const batchItems: BatchAnalyzeItem[] = [];
     for (const topicUrl of topicUrls) {
       const topic = store.getByUrl(topicUrl);
-      if (topic) batchItems.push({ key: topicUrl, title: topic.title, topicUrl });
+      if (topic) batchItems.push({ key: topicUrl, title: topic.title, topicUrl, starring: topic.starring });
     }
 
+    const actresses = app.getActressStore().getAll();
     let analyzed = 0;
-    await analyzeBatch(batchItems, config, (event) => {
+    await analyzeBatch(batchItems, config, actresses, (event) => {
       if (event.phase === "item-done") {
         store.setAiRating(event.key, event.aiRating);
         analyzed++;
