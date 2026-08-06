@@ -150,4 +150,8 @@ export interface DownloadedItem {
   fileSizeBytes?: number | null;
   fileMtimeMs?: number | null;
   fileBirthtimeMs?: number | null;
+  // 0-100 AI rating, same semantics as TopicData.aiRating — null if never
+  // analyzed. Only settable via items that have a topicUrl (screenshot
+  // analysis needs one to scrape from).
+  aiRating?: number | null;
 }

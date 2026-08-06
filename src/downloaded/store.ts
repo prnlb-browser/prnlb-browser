@@ -17,6 +17,7 @@ const CREATE_DOWNLOADED_TABLE = `
     duration        TEXT,
     size            TEXT,
     tags            TEXT NOT NULL DEFAULT '[]',
+    aiRating        REAL,
     createdAt       TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `;
@@ -28,6 +29,13 @@ export class DownloadedStore {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.exec(CREATE_DOWNLOADED_TABLE);
+
+    // Idempotent column addition for older schemas (pre-AI-rating).
+    try {
+      this.db.exec("ALTER TABLE downloaded ADD COLUMN aiRating REAL");
+    } catch {
+      // Column already exists — safe to ignore.
+    }
   }
 
   clearAll(): number {
@@ -110,6 +118,10 @@ export class DownloadedStore {
     return this.db
       .prepare("UPDATE downloaded SET tags = ? WHERE id = ?")
       .run(JSON.stringify(normalizeTags(tags)), id).changes > 0;
+  }
+
+  setAiRating(id: number, rating: number | null): boolean {
+    return this.db.prepare("UPDATE downloaded SET aiRating = ? WHERE id = ?").run(rating, id).changes > 0;
   }
 
   getAllTags(): DownloadedTag[] {

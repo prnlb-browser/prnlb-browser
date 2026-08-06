@@ -160,3 +160,78 @@ describe("TopicStore aiRating", () => {
     }
   });
 });
+
+describe("TopicStore sort", () => {
+  it("getAll() defaults to createdAt DESC when no sort is given", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert(baseTopic("u1", "First"));
+      store.insert(baseTopic("u2", "Second"));
+      // `createdAt` has second-level resolution (`datetime('now')`), so two
+      // inserts in the same test can land in the same second — set explicit,
+      // distinct timestamps directly so DESC order is deterministic here.
+      const Database = require("better-sqlite3");
+      const raw = new Database(dbPath);
+      raw.prepare("UPDATE topics SET createdAt = ? WHERE topicUrl = ?").run("2026-01-01 00:00:00", "u1");
+      raw.prepare("UPDATE topics SET createdAt = ? WHERE topicUrl = ?").run("2026-01-02 00:00:00", "u2");
+      raw.close();
+      const rows = store.getAll();
+      assert.deepEqual(rows.map((r) => r.topicUrl), ["u2", "u1"]);
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("getAll({by: 'aiRating'}) sorts by rating, pushing unrated (null) items last regardless of direction", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert(baseTopic("u1", "A"));
+      store.insert(baseTopic("u2", "B"));
+      store.insert(baseTopic("u3", "C")); // stays unrated
+      store.setAiRating("u1", 30);
+      store.setAiRating("u2", 90);
+
+      const desc = store.getAll({ by: "aiRating", dir: "desc" });
+      assert.deepEqual(desc.map((r) => r.topicUrl), ["u2", "u1", "u3"]);
+
+      const asc = store.getAll({ by: "aiRating", dir: "asc" });
+      assert.deepEqual(asc.map((r) => r.topicUrl), ["u1", "u2", "u3"]);
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("search()/getByForum()/searchByForum() honor the same sort option", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert({ ...baseTopic("u1", "Alpha"), sourceForum: "forumA" });
+      store.insert({ ...baseTopic("u2", "Alpha 2"), sourceForum: "forumA" });
+      store.setAiRating("u1", 10);
+      store.setAiRating("u2", 80);
+
+      assert.deepEqual(
+        store.search("Alpha", { by: "aiRating", dir: "desc" }).map((r) => r.topicUrl),
+        ["u2", "u1"],
+      );
+      assert.deepEqual(
+        store.getByForum("forumA", { by: "aiRating", dir: "desc" }).map((r) => r.topicUrl),
+        ["u2", "u1"],
+      );
+      assert.deepEqual(
+        store.searchByForum("Alpha", "forumA", { by: "aiRating", dir: "desc" }).map((r) => r.topicUrl),
+        ["u2", "u1"],
+      );
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

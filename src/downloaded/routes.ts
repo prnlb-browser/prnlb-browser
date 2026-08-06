@@ -9,6 +9,7 @@ import { fetchTopicTitle, refreshDownloadedItem, scanDownloadedFolder } from "./
 import type { DownloadedItem } from "../core/types.js";
 import { getKnownTags } from "../core/known-tags.js";
 import { validateFolderPath } from "../core/fs-paths.js";
+import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -20,7 +21,7 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
   ".bmp": "image/bmp",
 };
 
-const SORT_FIELDS = new Set(["fileName", "fileSizeBytes", "starring", "fileBirthtimeMs"]);
+const SORT_FIELDS = new Set(["fileName", "fileSizeBytes", "starring", "fileBirthtimeMs", "aiRating"]);
 
 function matchesText(haystack: string | null | undefined, query: string): boolean {
   if (!haystack) return false;
@@ -118,6 +119,45 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
     store.updateTags(id, body.tags ?? []);
     const updated = store.getById(id);
     json(res, { tags: updated?.tags ?? [] });
+    return true;
+  }
+
+  // POST /api/downloaded/analyze-batch — bulk-analyze the given items (the
+  // client's current filtered/sorted view), persisting each item's score as
+  // it completes. Items without a matched topicUrl are skipped (screenshot
+  // analysis needs one) — the client is expected to have filtered those out
+  // already, but this is re-checked defensively.
+  if (url.pathname === "/api/downloaded/analyze-batch" && method === "POST") {
+    const { ids } = await readJson<{ ids: number[] }>(req);
+    const config = app.loadConfig();
+    if (!config.ai.enabled) {
+      json(res, { error: "AI rating is not enabled" }, 400);
+      return true;
+    }
+    if (!Array.isArray(ids) || ids.length === 0) {
+      json(res, { error: "ids is required" }, 400);
+      return true;
+    }
+
+    const emit = startSse(res);
+    const batchItems: BatchAnalyzeItem[] = [];
+    for (const id of ids) {
+      const item = store.getById(id);
+      if (item?.topicUrl) {
+        batchItems.push({ key: String(id), title: item.title ?? item.fileName, topicUrl: item.topicUrl });
+      }
+    }
+
+    let analyzed = 0;
+    await analyzeBatch(batchItems, config, (event) => {
+      if (event.phase === "item-done") {
+        store.setAiRating(Number(event.key), event.aiRating);
+        analyzed++;
+      }
+      emit(event);
+    });
+    emit({ phase: "done", message: `Analyzed ${analyzed}/${ids.length} item(s)`, analyzed, total: ids.length });
+    res.end();
     return true;
   }
 

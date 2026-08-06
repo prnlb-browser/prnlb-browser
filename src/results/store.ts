@@ -31,6 +31,25 @@ function decodeRow(row: TopicRow): TopicData {
   return { ...row, tags: decodeTags(row.tags) };
 }
 
+export interface TopicSort {
+  by?: "createdAt" | "aiRating";
+  dir?: "asc" | "desc";
+}
+
+const SORT_COLUMNS: Record<NonNullable<TopicSort["by"]>, string> = {
+  createdAt: "createdAt",
+  aiRating: "aiRating",
+};
+
+// aiRating is nullable — nulls sort last regardless of direction, same
+// convention as the Downloaded tab's (client-side) sort comparator.
+function buildOrderClause(sort?: TopicSort): string {
+  const by = sort?.by && SORT_COLUMNS[sort.by] ? sort.by : "createdAt";
+  const dir = sort?.dir === "asc" ? "ASC" : "DESC";
+  if (by === "aiRating") return `ORDER BY (aiRating IS NULL) ASC, aiRating ${dir}`;
+  return `ORDER BY ${SORT_COLUMNS[by]} ${dir}`;
+}
+
 export class TopicStore {
   private db: Database.Database;
 
@@ -118,8 +137,8 @@ export class TopicStore {
     return mergeTagLists(...rows.map((row) => decodeTags(row.tags)));
   }
 
-  getAll(): TopicData[] {
-    const rows = this.db.prepare("SELECT * FROM topics ORDER BY createdAt DESC").all() as TopicRow[];
+  getAll(sort?: TopicSort): TopicData[] {
+    const rows = this.db.prepare(`SELECT * FROM topics ${buildOrderClause(sort)}`).all() as TopicRow[];
     return rows.map(decodeRow);
   }
 
@@ -127,20 +146,24 @@ export class TopicStore {
     return (this.db.prepare("SELECT COUNT(*) as cnt FROM topics").get() as { cnt: number }).cnt;
   }
 
-  search(query: string): TopicData[] {
-    const rows = this.db.prepare("SELECT * FROM topics WHERE title LIKE ? ORDER BY createdAt DESC").all(`%${query}%`) as TopicRow[];
+  search(query: string, sort?: TopicSort): TopicData[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM topics WHERE title LIKE ? ${buildOrderClause(sort)}`)
+      .all(`%${query}%`) as TopicRow[];
     return rows.map(decodeRow);
   }
 
-  searchByForum(query: string, sourceForum: string): TopicData[] {
+  searchByForum(query: string, sourceForum: string, sort?: TopicSort): TopicData[] {
     const rows = this.db.prepare(
-      "SELECT * FROM topics WHERE title LIKE ? AND sourceForum = ? ORDER BY createdAt DESC",
+      `SELECT * FROM topics WHERE title LIKE ? AND sourceForum = ? ${buildOrderClause(sort)}`,
     ).all(`%${query}%`, sourceForum) as TopicRow[];
     return rows.map(decodeRow);
   }
 
-  getByForum(sourceForum: string): TopicData[] {
-    const rows = this.db.prepare("SELECT * FROM topics WHERE sourceForum = ? ORDER BY createdAt DESC").all(sourceForum) as TopicRow[];
+  getByForum(sourceForum: string, sort?: TopicSort): TopicData[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM topics WHERE sourceForum = ? ${buildOrderClause(sort)}`)
+      .all(sourceForum) as TopicRow[];
     return rows.map(decodeRow);
   }
 

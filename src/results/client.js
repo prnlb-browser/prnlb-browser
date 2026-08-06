@@ -8,22 +8,31 @@ const resultsContainer = document.getElementById("results-container");
 const resultsFilterTags = document.getElementById("results-filter-tags");
 const resultsFilterTagsWrap = document.getElementById("results-filter-tags-wrap");
 const resultsClearTagsBtn = document.getElementById("results-clear-tags");
+const resultsSortBy = document.getElementById("results-sort-by");
+const resultsSortDir = document.getElementById("results-sort-dir");
+const btnAnalyzeResults = document.getElementById("btn-analyze-results");
+const resultsProgress = document.getElementById("results-progress");
+const resultsProgressBar = document.getElementById("results-progress-bar");
+const resultsProgressLog = document.getElementById("results-progress-log");
 // --- Results ---
 
 let allResultsKnownTags = []; // cached tag vocabulary (shared with Downloaded tab)
-let aiEnabled = false; // gates the "Analyze" menu item + rating badge — see loadAiEnabled()
+let resultsAiEnabled = false; // gates the "Analyze" menu item/button + rating badge — see loadResultsAiEnabled()
+let visibleResults = []; // the current filtered/sorted result set — what the bulk Analyze button operates on
+let isAnalyzingResults = false;
 
 // Refreshed on every loadResults() so a Config-tab change (AI enabled/
 // disabled) takes effect on the next Results refresh without a page reload.
-async function loadAiEnabled() {
+async function loadResultsAiEnabled() {
   try {
     const res = await fetch("/api/config");
     if (!res.ok) return;
     const cfg = await res.json();
-    aiEnabled = !!cfg.ai?.enabled;
+    resultsAiEnabled = !!cfg.ai?.enabled;
   } catch {
-    aiEnabled = false;
+    resultsAiEnabled = false;
   }
+  btnAnalyzeResults.hidden = !resultsAiEnabled;
 }
 
 // Toolbar tags filter — shared control (see src/core/ui/tags.js) so the
@@ -106,7 +115,7 @@ async function loadForums() {
 
 async function loadResults() {
   try {
-    await loadAiEnabled();
+    await loadResultsAiEnabled();
     const q = searchInput.value.trim();
     const forum = filterForum.value;
     const activeTagFilters = resultsTagFilter.getActiveFilters();
@@ -114,6 +123,8 @@ async function loadResults() {
     if (q) params.set("q", q);
     if (forum) params.set("forum", forum);
     if (activeTagFilters.length) params.set("tags", activeTagFilters.join(","));
+    if (resultsSortBy) params.set("sortBy", resultsSortBy.value);
+    if (resultsSortDir) params.set("sortDir", resultsSortDir.value);
     const qs = params.toString();
     const url = qs ? `/api/results?${qs}` : "/api/results";
     const res = await fetch(url);
@@ -134,6 +145,7 @@ async function loadResults() {
     if (actressMode) {
       filtered = filtered.filter((t) => matchesActressFilter(t, actressMode));
     }
+    visibleResults = filtered;
 
     resultCount.textContent = `${filtered.length} topics` + (q ? ` (search: "${q}")` : " in DB");
     if (forum) resultCount.textContent += ` — ${forum}`;
@@ -174,7 +186,7 @@ async function loadResults() {
             <div class="result-actions-menu-wrapper">
               <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
               <div class="popup-menu" data-popup-menu>
-                ${aiEnabled ? `<button class="popup-menu-item" data-action="analyze">🤖 Analyze</button>` : ""}
+                ${resultsAiEnabled ? `<button class="popup-menu-item" data-action="analyze">🤖 Analyze</button>` : ""}
                 <button class="popup-menu-item" data-action="refresh-details">🔄 Refresh details</button>
                 <button class="popup-menu-item" data-action="edit">✏️ Edit</button>
                 <button class="popup-menu-item danger" data-action="delete">🗑 Delete</button>
@@ -189,7 +201,7 @@ async function loadResults() {
             <button class="btn btn-small btn-tag-add" data-action="add-tag" title="Add or assign tag">+ Add tag</button>
           </div>
         </div>
-        ${aiEnabled ? `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>` : ""}
+        ${resultsAiEnabled ? `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>` : ""}
       </div>`;
         },
       )
@@ -206,6 +218,8 @@ searchInput.addEventListener("keydown", (e) => {
 filterForum.addEventListener("change", loadResults);
 filterActress.addEventListener("change", loadResults);
 filterHidden.addEventListener("change", loadResults);
+if (resultsSortBy) resultsSortBy.addEventListener("change", loadResults);
+if (resultsSortDir) resultsSortDir.addEventListener("change", loadResults);
 
 // Event delegation for hide buttons
 resultsContainer.addEventListener("click", async (e) => {
@@ -615,4 +629,73 @@ async function deleteTopicFromDb(topicUrl, card) {
     alert(`Failed to delete: ${err.message}`);
   }
 }
+
+// --- Results: bulk "Analyze" (current filtered view) ---
+// Analyzes visibleResults — exactly what's on screen after the active
+// search/forum/actress/hidden/tag filters, same "current page/filters
+// applied" set the toolbar already shows.
+btnAnalyzeResults.addEventListener("click", async () => {
+  if (isAnalyzingResults || visibleResults.length === 0) return;
+
+  isAnalyzingResults = true;
+  btnAnalyzeResults.disabled = true;
+  btnAnalyzeResults.textContent = "🤖 Analyzing…";
+  resultsProgress.hidden = false;
+  resultsProgressLog.textContent = "";
+  resultsProgressBar.style.width = "0%";
+
+  try {
+    const res = await fetch("/api/results/analyze-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicUrls: visibleResults.map((t) => t.topicUrl) }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = JSON.parse(line.slice(6));
+        if (data.phase === "start") {
+          resultsProgressLog.textContent += `▶ ${data.message}\n`;
+        } else if (data.phase === "item") {
+          const pct = data.total ? Math.round(((data.current - 1) / data.total) * 100) : 0;
+          resultsProgressBar.style.width = pct + "%";
+          resultsProgressLog.textContent += `🔍 [${data.current}/${data.total}] ${data.message}\n`;
+        } else if (data.phase === "item-done") {
+          const pct = data.total ? Math.round((data.current / data.total) * 100) : 0;
+          resultsProgressBar.style.width = pct + "%";
+          const topic = visibleResults.find((t) => t.topicUrl === data.key);
+          if (topic) topic.aiRating = data.aiRating;
+          const card = resultsContainer.querySelector(`.result-card[data-url="${cssEscape(data.key)}"]`);
+          const badge = card?.querySelector("[data-ai-rating-badge]");
+          if (badge) {
+            badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
+            badge.title = data.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(data.aiRating)}%`;
+          }
+        } else if (data.phase === "item-error") {
+          resultsProgressLog.textContent += `⚠️ ${data.message}\n`;
+        } else if (data.phase === "done") {
+          resultsProgressBar.style.width = "100%";
+          resultsProgressLog.textContent += `\n✅ ${data.message}\n`;
+        }
+        resultsProgressLog.scrollTop = resultsProgressLog.scrollHeight;
+      }
+    }
+  } catch (err) {
+    resultsProgressLog.textContent += `\n❌ ${err.message}\n`;
+  } finally {
+    isAnalyzingResults = false;
+    btnAnalyzeResults.disabled = false;
+    btnAnalyzeResults.textContent = "🤖 Analyze";
+  }
+});
 

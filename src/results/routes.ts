@@ -7,6 +7,8 @@ import { getTextClient, getVisionClient } from "../ai/providers/index.js";
 import { analyzeTitle } from "../ai/title-analyzer.js";
 import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
 import { computeScore } from "../ai/scoring.js";
+import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
+import type { TopicSort } from "./store.js";
 
 function escapeCsv(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -40,13 +42,17 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
     const tagsFilter = tagsRaw
       ? tagsRaw.split(",").map((t) => t.trim()).filter((t) => t.length > 0)
       : null;
+    const sort: TopicSort = {
+      by: url.searchParams.get("sortBy") === "aiRating" ? "aiRating" : "createdAt",
+      dir: url.searchParams.get("sortDir") === "asc" ? "asc" : "desc",
+    };
     const results = query && forum
-      ? store.searchByForum(query, forum)
+      ? store.searchByForum(query, forum, sort)
       : forum
-        ? store.getByForum(forum)
+        ? store.getByForum(forum, sort)
         : query
-          ? store.search(query)
-          : store.getAll();
+          ? store.search(query, sort)
+          : store.getAll(sort);
     json(res, applyTagsFilter(results, tagsFilter));
     return true;
   }
@@ -185,6 +191,41 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
     } catch (error) {
       json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
     }
+    return true;
+  }
+
+  // POST /api/results/analyze-batch — bulk-analyze the given topics (the
+  // client's current filtered/sorted view), persisting each topic's score
+  // as it completes so a slow batch doesn't lose progress if interrupted.
+  if (url.pathname === "/api/results/analyze-batch" && method === "POST") {
+    const { topicUrls } = await readJson<{ topicUrls: string[] }>(req);
+    const config = app.loadConfig();
+    if (!config.ai.enabled) {
+      json(res, { error: "AI rating is not enabled" }, 400);
+      return true;
+    }
+    if (!Array.isArray(topicUrls) || topicUrls.length === 0) {
+      json(res, { error: "topicUrls is required" }, 400);
+      return true;
+    }
+
+    const emit = startSse(res);
+    const batchItems: BatchAnalyzeItem[] = [];
+    for (const topicUrl of topicUrls) {
+      const topic = store.getByUrl(topicUrl);
+      if (topic) batchItems.push({ key: topicUrl, title: topic.title, topicUrl });
+    }
+
+    let analyzed = 0;
+    await analyzeBatch(batchItems, config, (event) => {
+      if (event.phase === "item-done") {
+        store.setAiRating(event.key, event.aiRating);
+        analyzed++;
+      }
+      emit(event);
+    });
+    emit({ phase: "done", message: `Analyzed ${analyzed}/${topicUrls.length} item(s)`, analyzed, total: topicUrls.length });
+    res.end();
     return true;
   }
 

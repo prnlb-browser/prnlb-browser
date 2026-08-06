@@ -6,12 +6,31 @@ const searchProgress = document.getElementById("search-progress");
 const searchProgressBar = document.getElementById("search-progress-bar");
 const searchProgressLog = document.getElementById("search-progress-log");
 const searchResultsContainer = document.getElementById("search-results-container");
+const btnAnalyzeSearch = document.getElementById("btn-analyze-search");
 // --- Search ---
 
 let searchForumOptions = [];
 let isSearching = false;
+let isAnalyzingSearch = false;
 let lastSearchResults = []; // Store for referencing by index
 let searchDetailGeneration = 0; // Cancel stale detail loading
+let searchAiEnabled = false; // gates the bulk Analyze button — see loadSearchAiEnabled()
+
+// Refreshed on load and after each search so a Config-tab change (AI
+// enabled/disabled) takes effect without a page reload — same pattern as
+// src/results/client.js and src/downloaded/client.js.
+async function loadSearchAiEnabled() {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+    searchAiEnabled = !!cfg.ai?.enabled;
+  } catch {
+    searchAiEnabled = false;
+  }
+  btnAnalyzeSearch.hidden = !searchAiEnabled;
+}
+loadSearchAiEnabled();
 
 async function loadSearchForumOptions() {
   try {
@@ -89,8 +108,9 @@ async function performSearch(start = 0) {
     showStatus(searchStatus, "Enter a search phrase", true);
     return;
   }
-  if (isSearching) return;
+  if (isSearching || isAnalyzingSearch) return;
 
+  await loadSearchAiEnabled();
   isSearching = true;
   btnSearch.disabled = true;
   btnSearch.textContent = "⏳ Searching...";
@@ -451,5 +471,83 @@ searchResultsContainer.addEventListener("click", async (e) => {
 btnSearch.addEventListener("click", () => performSearch());
 searchQuery.addEventListener("keydown", (e) => {
   if (e.key === "Enter") performSearch();
+});
+
+// --- Search: bulk "Analyze" (current result page) ---
+// Analyzes lastSearchResults — the currently displayed search page. Search
+// results aren't in the local topics DB, so nothing is persisted; each
+// card just gets a rating badge for this view, created on the fly (there's
+// nothing to show before analyzing, unlike Results/Downloaded where an
+// unrated item still shows a "–" placeholder for a rating that could be
+// persisted).
+btnAnalyzeSearch.addEventListener("click", async () => {
+  if (isSearching || isAnalyzingSearch || lastSearchResults.length === 0) return;
+
+  isAnalyzingSearch = true;
+  btnAnalyzeSearch.disabled = true;
+  btnAnalyzeSearch.textContent = "🤖 Analyzing…";
+  searchProgress.hidden = false;
+  searchProgressLog.textContent = "";
+  searchProgressBar.style.width = "0%";
+
+  try {
+    const res = await fetch("/api/search/analyze-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: lastSearchResults.map((t) => ({ topicUrl: t.topicUrl, title: t.title })) }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = JSON.parse(line.slice(6));
+        if (data.phase === "start") {
+          searchProgressLog.textContent += `▶ ${data.message}\n`;
+        } else if (data.phase === "item") {
+          const pct = data.total ? Math.round(((data.current - 1) / data.total) * 100) : 0;
+          searchProgressBar.style.width = pct + "%";
+          searchProgressLog.textContent += `🔍 [${data.current}/${data.total}] ${data.message}\n`;
+        } else if (data.phase === "item-done") {
+          const pct = data.total ? Math.round((data.current / data.total) * 100) : 0;
+          searchProgressBar.style.width = pct + "%";
+          const card = searchResultsContainer.querySelector(`.result-card[data-url="${cssEscape(data.key)}"]`);
+          if (card) {
+            let badge = card.querySelector("[data-ai-rating-badge]");
+            if (!badge) {
+              badge = document.createElement("div");
+              badge.className = "ai-rating-badge";
+              badge.dataset.aiRatingBadge = "";
+              card.appendChild(badge);
+            }
+            badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
+            badge.title =
+              (data.aiRating == null ? "Not analyzed" : `AI score: ${Math.round(data.aiRating)}%`) +
+              " — search results aren't saved, this rating is only shown for this search.";
+          }
+        } else if (data.phase === "item-error") {
+          searchProgressLog.textContent += `⚠️ ${data.message}\n`;
+        } else if (data.phase === "done") {
+          searchProgressBar.style.width = "100%";
+          searchProgressLog.textContent += `\n✅ ${data.message}\n`;
+        }
+        searchProgressLog.scrollTop = searchProgressLog.scrollHeight;
+      }
+    }
+  } catch (err) {
+    searchProgressLog.textContent += `\n❌ ${err.message}\n`;
+  } finally {
+    isAnalyzingSearch = false;
+    btnAnalyzeSearch.disabled = false;
+    btnAnalyzeSearch.textContent = "🤖 Analyze";
+  }
 });
 

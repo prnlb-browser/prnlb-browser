@@ -154,7 +154,26 @@
             </select>
           </label>
           <button id="results-clear-tags" class="btn btn-small" hidden>✕ Clear tags</button>
+          <label class="filter-toggle">
+            <select id="results-sort-by">
+              <option value="createdAt">Newest</option>
+              <option value="aiRating">AI rating</option>
+            </select>
+          </label>
+          <label class="filter-toggle">
+            <select id="results-sort-dir">
+              <option value="desc">DESC</option>
+              <option value="asc">ASC</option>
+            </select>
+          </label>
+          <button id="btn-analyze-results" class="btn btn-small" hidden>🤖 Analyze</button>
           <span id="results-count" class="status-msg"></span>
+        </div>
+        <div id="results-progress" hidden>
+          <div class="progress-bar-container" style="margin-top: 0.5rem">
+            <div id="results-progress-bar" class="progress-bar" style="width: 0%"></div>
+          </div>
+          <pre id="results-progress-log" class="log-output" style="max-height: 150px; margin-top: 0.5rem"></pre>
         </div>
       </div>
       <div id="results-container" class="results-grid"></div>
@@ -168,6 +187,7 @@
           <div class="search-row">
             <input type="text" id="search-query" placeholder="Search..." style="flex: 1" />
             <button id="btn-search" class="btn btn-primary">🔍 Search</button>
+            <button id="btn-analyze-search" class="btn btn-small" hidden>🤖 Analyze</button>
           </div>
           <div class="search-row" style="margin-top: 0.5rem">
             <label class="filter-toggle" style="flex: 1">
@@ -219,6 +239,7 @@
                 <option value="fileName">File name</option>
                 <option value="fileSizeBytes">File size</option>
                 <option value="starring">Cast</option>
+                <option value="aiRating">AI rating</option>
               </select>
             </label>
             <label class="filter-toggle">
@@ -227,6 +248,7 @@
                 <option value="asc">ASC</option>
               </select>
             </label>
+            <button id="btn-analyze-downloaded" class="btn btn-small" hidden>🤖 Analyze</button>
             <span id="downloaded-count" class="status-msg"></span>
           </div>
           <div id="downloaded-status" class="status-msg" style="margin-top: 0.5rem"></div>
