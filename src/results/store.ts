@@ -211,6 +211,10 @@ export class TopicStore {
     return hidden;
   }
 
+  setHidden(topicUrl: string, hidden: boolean): boolean {
+    return this.db.prepare("UPDATE topics SET hidden = ? WHERE topicUrl = ?").run(hidden ? 1 : 0, topicUrl).changes > 0;
+  }
+
   close(): void {
     this.db.close();
   }

@@ -4,6 +4,7 @@ import { resolverRegistry } from "../core/images/registry.js";
 import { downloadImageViaBrowser } from "../core/images/browser-download.js";
 import type { AiProviderClient } from "./providers/types.js";
 import type { PerformerCharacteristics, ScreenshotAnalysis } from "./types.js";
+import type { SceneCompositionTag } from "../core/types.js";
 
 // See docs/ai.spec.md §6.1 — bounds local inference time / OpenRouter cost;
 // a coarse characterization pass doesn't need every screenshot in a post.
@@ -131,7 +132,7 @@ export function postProcess(raw: RawScreenshotResult): ScreenshotAnalysis {
   const maleCount = performers.filter((p) => p.gender === "male").length;
   const total = performers.length;
 
-  const sceneTags: string[] = [];
+  const sceneTags: SceneCompositionTag[] = [];
   if (total === 1) {
     sceneTags.push("Solo");
   } else if (total === 2) {

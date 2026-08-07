@@ -27,12 +27,37 @@ export type BreastSize = "small" | "medium" | "large" | "extra-large" | "unknown
 // colliding with BreastSize's "medium" and HairColor's "black".
 export type PerformerCharacteristicValue = HairColor | HairLength | BodyType | AgeBracket | Race | BreastSize;
 
+// The fixed scene-composition vocabulary deterministically derived by the
+// screenshot analyzer (src/ai/screenshot-analyzer.ts postProcess(), see
+// docs/ai.spec.md §6.6) — the only closed set of tag *values* in the app,
+// as opposed to the free-form/user-grown tag vocabulary (src/core/tags.ts).
+// Kept here, not there, for the same reason as PerformerCharacteristicValue
+// above. postProcess() pushes these as a typed array, so this list and its
+// actual usage can't drift out of sync without a compile error.
+export type SceneCompositionTag = "Solo" | "Duo" | "FF" | "MM" | "MF" | "Threesome" | "FFM" | "MMF" | "FFF" | "MMM" | "Gangbang";
+export const SCENE_COMPOSITION_TAGS: readonly SceneCompositionTag[] = [
+  "Solo",
+  "Duo",
+  "FF",
+  "MM",
+  "MF",
+  "Threesome",
+  "FFM",
+  "MMF",
+  "FFF",
+  "MMM",
+  "Gangbang",
+];
+
 // A user-configured rule contributing to a topic's AI rating (see
 // docs/ai.spec.md §8). "tag" rules do a case-insensitive substring match
-// against combined title+screenshot tags; "performer-characteristic" rules
-// do an exact match against any performer's characteristic fields;
-// "actress" rules match against the Actress catalogue (src/actresses/) via
-// the item's title+Cast text — see src/core/actress-match.ts. `value` is
+// against combined title+screenshot tags; "predefined-tag" rules do a
+// case-insensitive exact match against the same pool, restricted to the
+// fixed SceneCompositionTag vocabulary above (so the rule editor can offer
+// a dropdown instead of free text); "performer-characteristic" rules do an
+// exact match against any performer's characteristic fields; "actress"
+// rules match against the Actress catalogue (src/actresses/) via the
+// item's title+Cast text — see src/core/actress-match.ts. `value` is
 // either the literal "favorite" (any favorited actress appears), the
 // literal "saved" (any catalogued actress appears, favorite or not), or a
 // specific actress's exact name (case-insensitive) — the rule editor's
@@ -40,6 +65,7 @@ export type PerformerCharacteristicValue = HairColor | HairLength | BodyType | A
 // just `string` since the catalogue is user data, not a fixed enum.
 export type AiScoreRule =
   | { type: "tag"; value: string; weight: number }
+  | { type: "predefined-tag"; value: SceneCompositionTag; weight: number }
   | { type: "performer-characteristic"; value: PerformerCharacteristicValue; weight: number }
   | { type: "actress"; value: string; weight: number };
 
@@ -66,6 +92,14 @@ export interface AiConfig {
   screenshots: {
     maxImages: number;
     maxDimension: number;
+  };
+  // Crawl-tab option (docs/ai.spec.md): when enabled, every newly crawled
+  // topic is analyzed right after a crawl finishes, and any topic whose
+  // aiRating comes back below `belowRating` is hidden automatically —
+  // same effect as the manual "Hide" action, just applied during the crawl.
+  autoHide: {
+    enabled: boolean;
+    belowRating: number;
   };
 }
 
@@ -117,7 +151,8 @@ export interface CrawlProgress {
     | "scan"
     | "itemDone"
     | "resolving"
-    | "scraping";
+    | "scraping"
+    | "analyzing";
   message: string;
   current?: number;
   total?: number;

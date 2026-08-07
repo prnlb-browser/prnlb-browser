@@ -10,6 +10,7 @@ export function getDefaultAiConfig(): AiConfig {
     openrouter: { apiKey: "", textModel: "", visionModel: "" },
     scoring: { rules: [] },
     screenshots: { maxImages: 4, maxDimension: 896 },
+    autoHide: { enabled: false, belowRating: 50 },
   };
 }
 
@@ -48,6 +49,7 @@ export class ConfigStore {
           openrouter: { ...defaultAi.openrouter, ...parsed.ai?.openrouter },
           scoring: { ...defaultAi.scoring, ...parsed.ai?.scoring },
           screenshots: { ...defaultAi.screenshots, ...parsed.ai?.screenshots },
+          autoHide: { ...defaultAi.autoHide, ...parsed.ai?.autoHide },
         },
       } as Config;
     } catch {

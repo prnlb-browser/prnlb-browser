@@ -35,6 +35,11 @@ function ruleMatches(
   actress: ActressMatchContext,
 ): boolean {
   if (rule.type === "tag") return tagPool.some((tag) => tag.includes(rule.value.toLowerCase()));
+  // "predefined-tag" is an exact match against the fixed SceneCompositionTag
+  // vocabulary, unlike "tag"'s substring match — the value only ever comes
+  // from a dropdown, so a partial match would be surprising (e.g. "MF"
+  // shouldn't match a "MMF" tag).
+  if (rule.type === "predefined-tag") return tagPool.includes(rule.value.toLowerCase());
   if (rule.type === "performer-characteristic") return characteristicPool.includes(rule.value);
   // "actress"
   if (rule.value === "favorite") return actress.matchedFavoriteNames.length > 0;

@@ -10,6 +10,7 @@ const aiOpenrouterFields = document.getElementById("ai-openrouter-fields");
 const rulesList = document.getElementById("ai-rules-list");
 const btnAddRule = document.getElementById("btn-add-rule");
 const aiScoringCard = document.getElementById("ai-scoring-card");
+const crawlAutoHideRow = document.getElementById("crawl-autohide-row");
 // --- Config ---
 
 function renderForums() {
@@ -49,6 +50,7 @@ function renderAiFields() {
   aiOllamaFields.hidden = provider !== "ollama";
   aiOpenrouterFields.hidden = provider !== "openrouter";
   aiScoringCard.classList.toggle("field-group--disabled", !enabled);
+  crawlAutoHideRow.hidden = !enabled;
 }
 
 // --- AI Scoring Rules ---
@@ -64,6 +66,12 @@ const PERFORMER_CHARACTERISTIC_OPTIONS = [
   { label: "Race", values: ["asian", "ebony", "caucasian", "latina", "middle-eastern", "mixed"] },
   { label: "Breast size", values: ["small", "medium", "large", "extra-large"] },
 ];
+
+// Mirrors SceneCompositionTag / SCENE_COMPOSITION_TAGS in src/core/types.ts
+// — the fixed headcount/gender-composition tags the screenshot analyzer
+// derives deterministically (postProcess(), docs/ai.spec.md §6.6). Keep in
+// sync manually if that list changes, same as PERFORMER_CHARACTERISTIC_OPTIONS.
+const PREDEFINED_TAG_OPTIONS = ["Solo", "Duo", "FF", "MM", "MF", "Threesome", "FFM", "MMF", "FFF", "MMM", "Gangbang"];
 
 // Cached actress catalogue for the "actress" rule type's value dropdown —
 // unlike PERFORMER_CHARACTERISTIC_OPTIONS this is user data, not a fixed
@@ -91,6 +99,10 @@ function renderRules() {
     let valueField;
     if (rule.type === "tag") {
       valueField = `<input type="text" data-field="value" placeholder="e.g. anal" value="${esc(rule.value)}" />`;
+    } else if (rule.type === "predefined-tag") {
+      valueField = `<select data-field="value">${PREDEFINED_TAG_OPTIONS.map(
+        (v) => `<option value="${esc(v)}"${v === rule.value ? " selected" : ""}>${esc(v)}</option>`,
+      ).join("")}</select>`;
     } else if (rule.type === "performer-characteristic") {
       valueField = `<select data-field="value">${PERFORMER_CHARACTERISTIC_OPTIONS.map(
         (group) =>
@@ -114,6 +126,7 @@ function renderRules() {
     div.innerHTML = `
       <select data-field="type">
         <option value="tag"${rule.type === "tag" ? " selected" : ""}>Tag contains</option>
+        <option value="predefined-tag"${rule.type === "predefined-tag" ? " selected" : ""}>Predefined tag</option>
         <option value="performer-characteristic"${rule.type === "performer-characteristic" ? " selected" : ""}>Performer characteristic</option>
         <option value="actress"${rule.type === "actress" ? " selected" : ""}>Actress</option>
       </select>
@@ -125,7 +138,13 @@ function renderRules() {
     div.querySelector(`[data-field="type"]`).addEventListener("change", (e) => {
       const newType = e.target.value;
       const defaultValue =
-        newType === "tag" ? "" : newType === "performer-characteristic" ? PERFORMER_CHARACTERISTIC_OPTIONS[0].values[0] : "favorite";
+        newType === "tag"
+          ? ""
+          : newType === "predefined-tag"
+            ? PREDEFINED_TAG_OPTIONS[0]
+            : newType === "performer-characteristic"
+              ? PERFORMER_CHARACTERISTIC_OPTIONS[0].values[0]
+              : "favorite";
       config.ai.scoring.rules[i] = { type: newType, value: defaultValue, weight: rule.weight };
       renderRules();
     });
@@ -162,6 +181,8 @@ function fillForm() {
   document.getElementById("cfg-ai-openrouter-vision-model").value = config.ai.openrouter.visionModel;
   document.getElementById("cfg-ai-max-images").value = config.ai.screenshots.maxImages;
   document.getElementById("cfg-ai-max-dimension").value = config.ai.screenshots.maxDimension;
+  document.getElementById("cfg-ai-autohide-enabled").checked = config.ai.autoHide.enabled;
+  document.getElementById("cfg-ai-autohide-rating").value = config.ai.autoHide.belowRating;
   renderAiFields();
   renderForums();
   renderRules();
@@ -186,6 +207,8 @@ function collectForm() {
   config.ai.openrouter.visionModel = document.getElementById("cfg-ai-openrouter-vision-model").value.trim();
   config.ai.screenshots.maxImages = parseInt(document.getElementById("cfg-ai-max-images").value, 10) || 4;
   config.ai.screenshots.maxDimension = parseInt(document.getElementById("cfg-ai-max-dimension").value, 10) || 896;
+  config.ai.autoHide.enabled = document.getElementById("cfg-ai-autohide-enabled").checked;
+  config.ai.autoHide.belowRating = Math.max(0, Math.min(100, parseInt(document.getElementById("cfg-ai-autohide-rating").value, 10) || 0));
 }
 
 async function loadConfig() {

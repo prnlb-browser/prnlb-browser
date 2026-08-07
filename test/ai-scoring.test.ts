@@ -49,6 +49,21 @@ describe("computeScore", () => {
     assert.equal(score, 70);
   });
 
+  it("matches predefined-tag rules exactly (case-insensitively), not as a substring", () => {
+    const exact = computeScore(
+      [{ type: "predefined-tag", value: "FFM", weight: 1 }],
+      title(),
+      screenshots({ tags: ["threesome", "ffm"] }),
+    );
+    const partial = computeScore(
+      [{ type: "predefined-tag", value: "FF", weight: 1 }],
+      title(),
+      screenshots({ tags: ["threesome", "ffm"] }),
+    );
+    assert.equal(exact, 100);
+    assert.equal(partial, 50); // "FF" must not match the "ffm" tag the way a "tag" rule's substring match would
+  });
+
   it("matches performer-characteristic rules against any performer's fields", () => {
     const score = computeScore(
       [{ type: "performer-characteristic", value: "blonde", weight: 0.5 }],

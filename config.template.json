@@ -35,6 +35,14 @@
     },
     "scoring": {
       "rules": []
+    },
+    "screenshots": {
+      "maxImages": 4,
+      "maxDimension": 896
+    },
+    "autoHide": {
+      "enabled": false,
+      "belowRating": 50
     }
   }
 }
