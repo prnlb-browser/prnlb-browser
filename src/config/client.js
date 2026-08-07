@@ -160,6 +160,8 @@ function fillForm() {
   document.getElementById("cfg-ai-openrouter-key").value = config.ai.openrouter.apiKey;
   document.getElementById("cfg-ai-openrouter-text-model").value = config.ai.openrouter.textModel;
   document.getElementById("cfg-ai-openrouter-vision-model").value = config.ai.openrouter.visionModel;
+  document.getElementById("cfg-ai-max-images").value = config.ai.screenshots.maxImages;
+  document.getElementById("cfg-ai-max-dimension").value = config.ai.screenshots.maxDimension;
   renderAiFields();
   renderForums();
   renderRules();
@@ -182,6 +184,8 @@ function collectForm() {
   config.ai.openrouter.apiKey = document.getElementById("cfg-ai-openrouter-key").value;
   config.ai.openrouter.textModel = document.getElementById("cfg-ai-openrouter-text-model").value.trim();
   config.ai.openrouter.visionModel = document.getElementById("cfg-ai-openrouter-vision-model").value.trim();
+  config.ai.screenshots.maxImages = parseInt(document.getElementById("cfg-ai-max-images").value, 10) || 4;
+  config.ai.screenshots.maxDimension = parseInt(document.getElementById("cfg-ai-max-dimension").value, 10) || 896;
 }
 
 async function loadConfig() {

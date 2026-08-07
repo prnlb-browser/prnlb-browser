@@ -522,7 +522,7 @@ async function analyzeSearchItem(topic, card, analyzeBtn) {
       card.appendChild(badge);
     }
     badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-    badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis) + SEARCH_RATING_NOTE;
+    badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings) + SEARCH_RATING_NOTE;
   } catch (err) {
     if (badge) {
       if (hadBadge) {
@@ -616,7 +616,7 @@ btnAnalyzeSearch.addEventListener("click", async () => {
               card.appendChild(badge);
             }
             badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis) + SEARCH_RATING_NOTE;
+            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings) + SEARCH_RATING_NOTE;
           }
         } else if (data.phase === "item-error") {
           searchProgressLog.textContent += `⚠️ ${data.message}\n`;

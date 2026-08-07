@@ -190,7 +190,7 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       });
       const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
         textPromise,
-        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings),
+        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
       ]);
       const actressContext = matchActresses(topic.title, topic.starring, app.getActressStore().getAll());
       const ratesStart = Date.now();

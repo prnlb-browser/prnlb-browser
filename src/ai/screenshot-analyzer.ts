@@ -7,11 +7,18 @@ import type { PerformerCharacteristics, ScreenshotAnalysis } from "./types.js";
 
 // See docs/ai.spec.md §6.1 — bounds local inference time / OpenRouter cost;
 // a coarse characterization pass doesn't need every screenshot in a post.
-const MAX_IMAGES = 4;
+// User-configurable (Config tab, AiConfig.screenshots) — these are just the
+// fallback defaults used when a caller doesn't pass explicit limits.
+const DEFAULT_MAX_IMAGES = 4;
 // Max long edge in pixels, aspect ratio preserved. Forum screenshots are
 // typically far larger than any vision model needs for this pass.
-const MAX_DIMENSION = 896;
+const DEFAULT_MAX_DIMENSION = 896;
 const JPEG_QUALITY = 85;
+
+export interface ScreenshotLimits {
+  maxImages: number;
+  maxDimension: number;
+}
 
 const CHARACTERISTIC_SCHEMA = {
   type: "object",
@@ -88,9 +95,10 @@ export async function analyzeScreenshots(
   topicUrl: string,
   client: AiProviderClient,
   timings?: ScreenshotTimings,
+  limits?: ScreenshotLimits,
 ): Promise<ScreenshotAnalysis> {
   const fetchStart = Date.now();
-  const images = await fetchAndResizeScreenshots(topicUrl);
+  const images = await fetchAndResizeScreenshots(topicUrl, limits);
   if (timings) timings.getImagesMs = Date.now() - fetchStart;
   if (images.length === 0) {
     if (timings) timings.processScreensMs = 0;
@@ -154,16 +162,18 @@ function mergeTags(tags: string[], extra: string[]): string[] {
   return merged;
 }
 
-async function fetchAndResizeScreenshots(topicUrl: string): Promise<Buffer[]> {
+async function fetchAndResizeScreenshots(topicUrl: string, limits?: ScreenshotLimits): Promise<Buffer[]> {
+  const maxImages = limits?.maxImages ?? DEFAULT_MAX_IMAGES;
+  const maxDimension = limits?.maxDimension ?? DEFAULT_MAX_DIMENSION;
   const scraped = await scrapeTopicImages(topicUrl);
   const resolved = await resolverRegistry.resolveImages(scraped);
-  const chosen = resolved.slice(0, MAX_IMAGES);
+  const chosen = resolved.slice(0, maxImages);
 
   const buffers: Buffer[] = [];
   for (const image of chosen) {
     const bytes = await fetchImageBytes(image.resolvedUrl);
     if (!bytes) continue;
-    const resized = await resizeImage(bytes);
+    const resized = await resizeImage(bytes, maxDimension);
     if (resized) buffers.push(resized);
   }
   return buffers;
@@ -182,13 +192,13 @@ async function fetchImageBytes(url: string): Promise<Buffer | null> {
   return null;
 }
 
-async function resizeImage(bytes: Buffer): Promise<Buffer | null> {
+async function resizeImage(bytes: Buffer, maxDimension: number): Promise<Buffer | null> {
   try {
     const image = await Jimp.read(bytes);
     if (image.bitmap.width >= image.bitmap.height) {
-      image.resize({ w: Math.min(MAX_DIMENSION, image.bitmap.width) });
+      image.resize({ w: Math.min(maxDimension, image.bitmap.width) });
     } else {
-      image.resize({ h: Math.min(MAX_DIMENSION, image.bitmap.height) });
+      image.resize({ h: Math.min(maxDimension, image.bitmap.height) });
     }
     return await image.getBuffer(JimpMime.jpeg, { quality: JPEG_QUALITY });
   } catch {

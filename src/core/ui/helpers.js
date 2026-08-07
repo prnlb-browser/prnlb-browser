@@ -167,8 +167,8 @@ function populateActressFilterOptions() {
 // The raw analyzer output is never persisted (docs/ai.spec.md §7) — this
 // JSON tooltip is the only place a user can see why a score came out the
 // way it did.
-function formatAiRatingTooltip(aiRating, titleAnalysis, screenshotAnalysis) {
-  return JSON.stringify({ aiRating, titleAnalysis, screenshotAnalysis }, null, 2);
+function formatAiRatingTooltip(aiRating, titleAnalysis, screenshotAnalysis, timings) {
+  return JSON.stringify({ aiRating, titleAnalysis, screenshotAnalysis, timings }, null, 2);
 }
 
 function showStatus(el, msg, isError) {

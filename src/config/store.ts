@@ -9,6 +9,7 @@ export function getDefaultAiConfig(): AiConfig {
     ollama: { baseUrl: "http://localhost:11434", textModel: "qwen2.5:0.5b", visionModel: "qwen2.5vl:3b" },
     openrouter: { apiKey: "", textModel: "", visionModel: "" },
     scoring: { rules: [] },
+    screenshots: { maxImages: 4, maxDimension: 896 },
   };
 }
 
@@ -46,6 +47,7 @@ export class ConfigStore {
           ollama: { ...defaultAi.ollama, ...parsed.ai?.ollama },
           openrouter: { ...defaultAi.openrouter, ...parsed.ai?.openrouter },
           scoring: { ...defaultAi.scoring, ...parsed.ai?.scoring },
+          screenshots: { ...defaultAi.screenshots, ...parsed.ai?.screenshots },
         },
       } as Config;
     } catch {

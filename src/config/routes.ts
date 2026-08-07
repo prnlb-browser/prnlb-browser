@@ -51,7 +51,7 @@ export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, 
       try {
         const [titleAnalysis, screenshotAnalysis] = await Promise.all([
           analyzeTitle(label, getTextClient(config)),
-          analyzeScreenshots(item.topicUrl!, getVisionClient(config)),
+          analyzeScreenshots(item.topicUrl!, getVisionClient(config), undefined, config.ai.screenshots),
         ]);
         analyses.push({ title: titleAnalysis, screenshots: screenshotAnalysis });
       } catch (error) {

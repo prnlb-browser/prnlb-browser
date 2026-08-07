@@ -2,7 +2,7 @@ import type { Actress, Config } from "../core/types.js";
 import type { TitleAnalysis, ScreenshotAnalysis } from "./types.js";
 import { getTextClient, getVisionClient } from "./providers/index.js";
 import { analyzeTitle } from "./title-analyzer.js";
-import { analyzeScreenshots } from "./screenshot-analyzer.js";
+import { analyzeScreenshots, type ScreenshotTimings } from "./screenshot-analyzer.js";
 import { computeScore } from "./scoring.js";
 import { matchActresses } from "../core/actress-match.js";
 
@@ -26,6 +26,7 @@ export type BatchAnalyzeProgress =
       aiRating: number | null;
       titleAnalysis: TitleAnalysis;
       screenshotAnalysis: ScreenshotAnalysis;
+      timings: { getImagesMs: number; processTextMs: number; processScreensMs: number; calculateRatesMs: number; totalMs: number };
     }
   | { phase: "item-error"; current: number; total: number; key: string; message: string };
 
@@ -45,13 +46,29 @@ export async function analyzeBatch(
     const item = items[i]!;
     onProgress({ phase: "item", current: i + 1, total: items.length, key: item.key, message: `Analyzing "${item.title}"...` });
     try {
-      const [titleAnalysis, screenshotAnalysis] = await Promise.all([
-        analyzeTitle(item.title, getTextClient(config)),
-        analyzeScreenshots(item.topicUrl, getVisionClient(config)),
+      const totalStart = Date.now();
+      const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
+      const textStart = Date.now();
+      const textPromise = analyzeTitle(item.title, getTextClient(config)).then((result) => {
+        const processTextMs = Date.now() - textStart;
+        return { result, processTextMs };
+      });
+      const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
+        textPromise,
+        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
       ]);
       const actressContext = matchActresses(item.title, item.starring, actresses);
+      const ratesStart = Date.now();
       const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
-      onProgress({ phase: "item-done", current: i + 1, total: items.length, key: item.key, aiRating, titleAnalysis, screenshotAnalysis });
+      const calculateRatesMs = Date.now() - ratesStart;
+      const timings = {
+        getImagesMs: screenshotTimings.getImagesMs,
+        processTextMs,
+        processScreensMs: screenshotTimings.processScreensMs,
+        calculateRatesMs,
+        totalMs: Date.now() - totalStart,
+      };
+      onProgress({ phase: "item-done", current: i + 1, total: items.length, key: item.key, aiRating, titleAnalysis, screenshotAnalysis, timings });
     } catch (error) {
       onProgress({
         phase: "item-error",

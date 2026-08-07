@@ -59,6 +59,14 @@ export interface AiConfig {
   scoring: {
     rules: AiScoreRule[];
   };
+  // Bounds the screenshot analyzer's vision call (src/ai/screenshot-analyzer.ts)
+  // — how many post images to send per topic, and the max long-edge pixel
+  // size each is resized to before sending. Lower values trade scene
+  // coverage/detail for faster inference.
+  screenshots: {
+    maxImages: number;
+    maxDimension: number;
+  };
 }
 
 export interface Config {

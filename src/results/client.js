@@ -330,7 +330,7 @@ async function analyzeTopic(topicUrl, card) {
     card.dataset.aiRating = data.aiRating == null ? "" : String(data.aiRating);
     if (badge) {
       badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-      badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis);
+      badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings);
     }
   } catch (err) {
     if (badge) badge.textContent = card.dataset.aiRating ? `${Math.round(card.dataset.aiRating)}%` : "–";
@@ -689,7 +689,7 @@ btnAnalyzeResults.addEventListener("click", async () => {
           const badge = card?.querySelector("[data-ai-rating-badge]");
           if (badge) {
             badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis);
+            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings);
           }
         } else if (data.phase === "item-error") {
           resultsProgressLog.textContent += `⚠️ ${data.message}\n`;

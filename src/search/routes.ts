@@ -4,7 +4,7 @@ import { fetchForumOptions, fetchTopicDetails, searchPornolab } from "./scraper.
 import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
 import { getTextClient, getVisionClient } from "../ai/providers/index.js";
 import { analyzeTitle } from "../ai/title-analyzer.js";
-import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
+import { analyzeScreenshots, type ScreenshotTimings } from "../ai/screenshot-analyzer.js";
 import { computeScore } from "../ai/scoring.js";
 import { matchActresses } from "../core/actress-match.js";
 
@@ -26,13 +26,29 @@ export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, 
       return true;
     }
     try {
-      const [titleAnalysis, screenshotAnalysis] = await Promise.all([
-        analyzeTitle(title, getTextClient(config)),
-        analyzeScreenshots(topicUrl, getVisionClient(config)),
+      const totalStart = Date.now();
+      const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
+      const textStart = Date.now();
+      const textPromise = analyzeTitle(title, getTextClient(config)).then((result) => {
+        const processTextMs = Date.now() - textStart;
+        return { result, processTextMs };
+      });
+      const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
+        textPromise,
+        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
       ]);
       const actressContext = matchActresses(title, starring ?? null, app.getActressStore().getAll());
+      const ratesStart = Date.now();
       const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
-      json(res, { aiRating, titleAnalysis, screenshotAnalysis });
+      const calculateRatesMs = Date.now() - ratesStart;
+      const timings = {
+        getImagesMs: screenshotTimings.getImagesMs,
+        processTextMs,
+        processScreensMs: screenshotTimings.processScreensMs,
+        calculateRatesMs,
+        totalMs: Date.now() - totalStart,
+      };
+      json(res, { aiRating, titleAnalysis, screenshotAnalysis, timings });
     } catch (error) {
       json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
     }

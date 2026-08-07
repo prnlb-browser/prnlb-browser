@@ -161,7 +161,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       });
       const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
         textPromise,
-        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings),
+        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
       ]);
       const actressContext = matchActresses(item.title ?? item.fileName, item.starring, app.getActressStore().getAll());
       const ratesStart = Date.now();
