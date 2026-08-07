@@ -32,22 +32,42 @@ function decodeRow(row: TopicRow): TopicData {
 }
 
 export interface TopicSort {
-  by?: "createdAt" | "aiRating";
+  by?: "createdAt" | "aiRating" | "size" | "starring";
   dir?: "asc" | "desc";
 }
 
-const SORT_COLUMNS: Record<NonNullable<TopicSort["by"]>, string> = {
-  createdAt: "createdAt",
-  aiRating: "aiRating",
-};
+const SORT_FIELDS = new Set<NonNullable<TopicSort["by"]>>(["createdAt", "aiRating", "size", "starring"]);
 
-// aiRating is nullable — nulls sort last regardless of direction, same
-// convention as the Downloaded tab's (client-side) sort comparator.
-function buildOrderClause(sort?: TopicSort): string {
-  const by = sort?.by && SORT_COLUMNS[sort.by] ? sort.by : "createdAt";
-  const dir = sort?.dir === "asc" ? "ASC" : "DESC";
-  if (by === "aiRating") return `ORDER BY (aiRating IS NULL) ASC, aiRating ${dir}`;
-  return `ORDER BY ${SORT_COLUMNS[by]} ${dir}`;
+// "size" is a human-readable string scraped from the forum (e.g. "1.36 GB"),
+// so it can't be sorted correctly as text — parse it to bytes first.
+function sizeToBytes(size: string | null | undefined): number | null {
+  if (!size) return null;
+  const match = size.match(/^([\d.,]+)\s*([KMGT]?B)$/i);
+  if (!match) return null;
+  const value = parseFloat(match[1]!.replace(",", "."));
+  if (Number.isNaN(value)) return null;
+  const multipliers: Record<string, number> = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 };
+  return value * (multipliers[match[2]!.toUpperCase()] ?? 1);
+}
+
+// Sorting happens in JS rather than SQL — "size" needs byte-parsing (see
+// above), so all fields are sorted here for one consistent code path.
+// Nulls/empty values sort last regardless of direction, same convention as
+// the Downloaded tab's sort comparator.
+function sortTopics(rows: TopicData[], sort?: TopicSort): TopicData[] {
+  const by = sort?.by && SORT_FIELDS.has(sort.by) ? sort.by : "createdAt";
+  const dir = sort?.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = by === "size" ? sizeToBytes(a.size) : (a as unknown as Record<string, unknown>)[by];
+    const bv = by === "size" ? sizeToBytes(b.size) : (b as unknown as Record<string, unknown>)[by];
+    const aNull = av === null || av === undefined || av === "";
+    const bNull = bv === null || bv === undefined || bv === "";
+    if (aNull && bNull) return 0;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" }) * dir;
+  });
 }
 
 export class TopicStore {
@@ -132,14 +152,18 @@ export class TopicStore {
     return this.db.prepare("UPDATE topics SET aiRating = ? WHERE topicUrl = ?").run(rating, topicUrl).changes > 0;
   }
 
+  clearAllAiRatings(): number {
+    return this.db.prepare("UPDATE topics SET aiRating = NULL WHERE aiRating IS NOT NULL").run().changes;
+  }
+
   getAllTags(): ReturnType<typeof mergeTagLists> {
     const rows = this.db.prepare("SELECT tags FROM topics WHERE tags IS NOT NULL AND tags != ''").all() as { tags: string }[];
     return mergeTagLists(...rows.map((row) => decodeTags(row.tags)));
   }
 
   getAll(sort?: TopicSort): TopicData[] {
-    const rows = this.db.prepare(`SELECT * FROM topics ${buildOrderClause(sort)}`).all() as TopicRow[];
-    return rows.map(decodeRow);
+    const rows = this.db.prepare(`SELECT * FROM topics`).all() as TopicRow[];
+    return sortTopics(rows.map(decodeRow), sort);
   }
 
   count(): number {
@@ -148,23 +172,23 @@ export class TopicStore {
 
   search(query: string, sort?: TopicSort): TopicData[] {
     const rows = this.db
-      .prepare(`SELECT * FROM topics WHERE title LIKE ? ${buildOrderClause(sort)}`)
+      .prepare(`SELECT * FROM topics WHERE title LIKE ?`)
       .all(`%${query}%`) as TopicRow[];
-    return rows.map(decodeRow);
+    return sortTopics(rows.map(decodeRow), sort);
   }
 
   searchByForum(query: string, sourceForum: string, sort?: TopicSort): TopicData[] {
     const rows = this.db.prepare(
-      `SELECT * FROM topics WHERE title LIKE ? AND sourceForum = ? ${buildOrderClause(sort)}`,
+      `SELECT * FROM topics WHERE title LIKE ? AND sourceForum = ?`,
     ).all(`%${query}%`, sourceForum) as TopicRow[];
-    return rows.map(decodeRow);
+    return sortTopics(rows.map(decodeRow), sort);
   }
 
   getByForum(sourceForum: string, sort?: TopicSort): TopicData[] {
     const rows = this.db
-      .prepare(`SELECT * FROM topics WHERE sourceForum = ? ${buildOrderClause(sort)}`)
+      .prepare(`SELECT * FROM topics WHERE sourceForum = ?`)
       .all(sourceForum) as TopicRow[];
-    return rows.map(decodeRow);
+    return sortTopics(rows.map(decodeRow), sort);
   }
 
   getDistinctForums(): string[] {

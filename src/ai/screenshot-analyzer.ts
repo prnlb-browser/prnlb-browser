@@ -76,17 +76,34 @@ export interface RawScreenshotResult {
   performers: RawPerformer[];
 }
 
-export async function analyzeScreenshots(topicUrl: string, client: AiProviderClient): Promise<ScreenshotAnalysis> {
+// Optional out-param the caller can pass to recover a phase-by-phase timing
+// breakdown (§10's per-item debug tooltip) without changing the return type
+// for every other call site that doesn't care.
+export interface ScreenshotTimings {
+  getImagesMs: number;
+  processScreensMs: number;
+}
+
+export async function analyzeScreenshots(
+  topicUrl: string,
+  client: AiProviderClient,
+  timings?: ScreenshotTimings,
+): Promise<ScreenshotAnalysis> {
+  const fetchStart = Date.now();
   const images = await fetchAndResizeScreenshots(topicUrl);
+  if (timings) timings.getImagesMs = Date.now() - fetchStart;
   if (images.length === 0) {
+    if (timings) timings.processScreensMs = 0;
     return { tags: [], performers: [] };
   }
+  const visionStart = Date.now();
   const raw = await client.completeJson<RawScreenshotResult>({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: USER_PROMPT,
     images,
     schema: SCHEMA,
   });
+  if (timings) timings.processScreensMs = Date.now() - visionStart;
   return postProcess(raw);
 }
 

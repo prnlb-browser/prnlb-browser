@@ -406,6 +406,18 @@ btnClearDb.addEventListener("click", async () => {
   }
 });
 
+document.getElementById("btn-clean-ai-rates").addEventListener("click", async () => {
+  if (!confirm("Are you sure you want to purge all AI rating data from the database? This cannot be undone.")) return;
+  try {
+    const res = await fetch("/api/config/ai/clean-rates", { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to clean AI rates");
+    const data = await res.json();
+    showStatus(configStatus, data.message, false);
+  } catch (err) {
+    showStatus(configStatus, err.message, true);
+  }
+});
+
 // --- Export CSV ---
 
 document.getElementById("btn-export-csv").addEventListener("click", async () => {

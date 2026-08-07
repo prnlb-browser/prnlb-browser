@@ -124,6 +124,10 @@ export class DownloadedStore {
     return this.db.prepare("UPDATE downloaded SET aiRating = ? WHERE id = ?").run(rating, id).changes > 0;
   }
 
+  clearAllAiRatings(): number {
+    return this.db.prepare("UPDATE downloaded SET aiRating = NULL WHERE aiRating IS NOT NULL").run().changes;
+  }
+
   getAllTags(): DownloadedTag[] {
     const rows = this.db.prepare("SELECT tags FROM downloaded WHERE tags IS NOT NULL AND tags != ''").all() as { tags: string }[];
     return mergeTagLists(...rows.map((row) => decodeTags(row.tags)));

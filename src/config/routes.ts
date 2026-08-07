@@ -76,5 +76,12 @@ export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, 
     return true;
   }
 
+  if (url.pathname === "/api/config/ai/clean-rates" && method === "DELETE") {
+    const topicsCleared = app.getTopicStore().clearAllAiRatings();
+    const downloadedCleared = app.getDownloadedStore().clearAllAiRatings();
+    json(res, { message: `Cleared AI rating from ${topicsCleared + downloadedCleared} item(s)` });
+    return true;
+  }
+
   return false;
 };

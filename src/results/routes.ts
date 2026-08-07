@@ -5,7 +5,7 @@ import { fetchTopicDetails } from "../search/scraper.js";
 import { getKnownTags } from "../core/known-tags.js";
 import { getTextClient, getVisionClient } from "../ai/providers/index.js";
 import { analyzeTitle } from "../ai/title-analyzer.js";
-import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
+import { analyzeScreenshots, type ScreenshotTimings } from "../ai/screenshot-analyzer.js";
 import { computeScore } from "../ai/scoring.js";
 import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
 import { matchActresses } from "../core/actress-match.js";
@@ -43,8 +43,10 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
     const tagsFilter = tagsRaw
       ? tagsRaw.split(",").map((t) => t.trim()).filter((t) => t.length > 0)
       : null;
+    const sortByParam = url.searchParams.get("sortBy");
+    const validSortBy = new Set<NonNullable<TopicSort["by"]>>(["createdAt", "aiRating", "size", "starring"]);
     const sort: TopicSort = {
-      by: url.searchParams.get("sortBy") === "aiRating" ? "aiRating" : "createdAt",
+      by: sortByParam && validSortBy.has(sortByParam as NonNullable<TopicSort["by"]>) ? (sortByParam as TopicSort["by"]) : "createdAt",
       dir: url.searchParams.get("sortDir") === "asc" ? "asc" : "desc",
     };
     const results = query && forum
@@ -179,17 +181,33 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       return true;
     }
     try {
-      const [titleAnalysis, screenshotAnalysis] = await Promise.all([
-        analyzeTitle(topic.title, getTextClient(config)),
-        analyzeScreenshots(topicUrl, getVisionClient(config)),
+      const totalStart = Date.now();
+      const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
+      const textStart = Date.now();
+      const textPromise = analyzeTitle(topic.title, getTextClient(config)).then((result) => {
+        const processTextMs = Date.now() - textStart;
+        return { result, processTextMs };
+      });
+      const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
+        textPromise,
+        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings),
       ]);
       const actressContext = matchActresses(topic.title, topic.starring, app.getActressStore().getAll());
+      const ratesStart = Date.now();
       const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
+      const calculateRatesMs = Date.now() - ratesStart;
       store.setAiRating(topicUrl, aiRating);
       // titleAnalysis/screenshotAnalysis are returned for the client's
       // debug tooltip only — per docs/ai.spec.md §7, only aiRating is
       // persisted, so this is the one place the raw analysis is visible.
-      json(res, { aiRating, titleAnalysis, screenshotAnalysis });
+      const timings = {
+        getImagesMs: screenshotTimings.getImagesMs,
+        processTextMs,
+        processScreensMs: screenshotTimings.processScreensMs,
+        calculateRatesMs,
+        totalMs: Date.now() - totalStart,
+      };
+      json(res, { aiRating, titleAnalysis, screenshotAnalysis, timings });
     } catch (error) {
       json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
     }

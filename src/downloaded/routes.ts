@@ -12,7 +12,7 @@ import { validateFolderPath } from "../core/fs-paths.js";
 import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
 import { getTextClient, getVisionClient } from "../ai/providers/index.js";
 import { analyzeTitle } from "../ai/title-analyzer.js";
-import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
+import { analyzeScreenshots, type ScreenshotTimings } from "../ai/screenshot-analyzer.js";
 import { computeScore } from "../ai/scoring.js";
 import { matchActresses } from "../core/actress-match.js";
 
@@ -152,14 +152,30 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       return true;
     }
     try {
-      const [titleAnalysis, screenshotAnalysis] = await Promise.all([
-        analyzeTitle(item.title ?? item.fileName, getTextClient(config)),
-        analyzeScreenshots(item.topicUrl, getVisionClient(config)),
+      const totalStart = Date.now();
+      const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
+      const textStart = Date.now();
+      const textPromise = analyzeTitle(item.title ?? item.fileName, getTextClient(config)).then((result) => {
+        const processTextMs = Date.now() - textStart;
+        return { result, processTextMs };
+      });
+      const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
+        textPromise,
+        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings),
       ]);
       const actressContext = matchActresses(item.title ?? item.fileName, item.starring, app.getActressStore().getAll());
+      const ratesStart = Date.now();
       const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
+      const calculateRatesMs = Date.now() - ratesStart;
       store.setAiRating(id, aiRating);
-      json(res, { aiRating, titleAnalysis, screenshotAnalysis });
+      const timings = {
+        getImagesMs: screenshotTimings.getImagesMs,
+        processTextMs,
+        processScreensMs: screenshotTimings.processScreensMs,
+        calculateRatesMs,
+        totalMs: Date.now() - totalStart,
+      };
+      json(res, { aiRating, titleAnalysis, screenshotAnalysis, timings });
     } catch (error) {
       json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
     }
