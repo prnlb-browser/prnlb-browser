@@ -148,4 +148,36 @@ describe("analyzeTitle", () => {
     assert.deepEqual(result.actresses, ["Jane Doe"]);
     assert.deepEqual(result.tags, ["Anal"]);
   });
+
+  it("falls back to the parsed cast for a performer the title doesn't mention", async () => {
+    const result = await analyzeTitle(
+      "Some Scene Title With No Names",
+      mockClient({ actresses: [], tags: [], quality: "unknown" }),
+      "Jane Doe, John Smith",
+    );
+    assert.deepEqual(result.actresses, ["Jane Doe", "John Smith"]);
+  });
+
+  it("only adds cast names the title didn't already surface, and dedupes against them", async () => {
+    const result = await analyzeTitle(
+      "[Studio] Jane Doe - Some Scene (123)",
+      mockClient({ actresses: ["Jane Doe"], tags: [], quality: "unknown" }),
+      "Jane Doe, John Smith (as Johnny)",
+    );
+    assert.deepEqual(result.actresses, ["Jane Doe", "John Smith"]);
+  });
+
+  it("ignores the parsed cast when every name it lists is already in the title", async () => {
+    const result = await analyzeTitle(
+      "[Studio] Jane Doe - Some Scene (123)",
+      mockClient({ actresses: ["Jane Doe"], tags: [], quality: "unknown" }),
+      "Jane Doe",
+    );
+    assert.deepEqual(result.actresses, ["Jane Doe"]);
+  });
+
+  it("ignores a null/missing starring value", async () => {
+    const result = await analyzeTitle("irrelevant", mockClient({ actresses: ["Jane Doe"], tags: [], quality: "unknown" }), null);
+    assert.deepEqual(result.actresses, ["Jane Doe"]);
+  });
 });

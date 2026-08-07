@@ -1,5 +1,6 @@
 import type { AiProviderClient } from "./providers/types.js";
 import type { TitleAnalysis } from "./types.js";
+import { splitCastNames } from "../core/actress-match.js";
 
 const SCHEMA = {
   type: "object",
@@ -75,7 +76,25 @@ function cleanActresses(actresses: string[]): string[] {
   return cleaned;
 }
 
-export async function analyzeTitle(title: string, client: AiProviderClient): Promise<TitleAnalysis> {
+// Falls back to the scraped "Cast" text (starring) for any performer it
+// names who the title itself doesn't mention — titles don't always list
+// every performer (or the small model misses one), but the Cast field
+// often does. Only added when the title doesn't already mention the name,
+// so this never overrides what the title-based extraction actually found.
+function withCastFallback(actresses: string[], title: string, starring: string | null | undefined): string[] {
+  const titleLower = title.toLowerCase();
+  const withFallback = [...actresses];
+  for (const castName of splitCastNames(starring ?? null)) {
+    if (!titleLower.includes(castName.toLowerCase())) withFallback.push(castName);
+  }
+  return withFallback;
+}
+
+export async function analyzeTitle(
+  title: string,
+  client: AiProviderClient,
+  starring?: string | null,
+): Promise<TitleAnalysis> {
   const result = await client.completeJson<TitleAnalysis>({
     systemPrompt: SYSTEM_PROMPT,
     userPrompt: title,
@@ -83,7 +102,7 @@ export async function analyzeTitle(title: string, client: AiProviderClient): Pro
   });
   return {
     ...result,
-    actresses: cleanActresses(result.actresses ?? []),
+    actresses: cleanActresses(withCastFallback(result.actresses ?? [], title, starring)),
     tags: cleanTags(result.tags ?? []),
   };
 }

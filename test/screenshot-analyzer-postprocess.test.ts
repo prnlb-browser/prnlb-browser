@@ -20,14 +20,28 @@ function raw(tags: string[], performers: RawPerformer[]): RawScreenshotResult {
 }
 
 describe("postProcess", () => {
-  it("adds no scene-composition tag for a solo or duo performer count", () => {
-    assert.deepEqual(postProcess(raw([], [performer()])).tags, []);
-    assert.deepEqual(postProcess(raw([], [performer(), performer({ gender: "male" })])).tags, []);
+  it("adds 'Solo' for exactly 1 performer", () => {
+    assert.deepEqual(postProcess(raw([], [performer()])).tags, ["Solo"]);
   });
 
-  it("adds 'Threesome' for exactly 3 performers, with no FFM/MMF tag for a same-gender trio", () => {
-    const result = postProcess(raw([], [performer(), performer(), performer()]));
-    assert.deepEqual(result.tags, ["Threesome"]);
+  it("adds 'Duo' + gender-composition tag for exactly 2 performers", () => {
+    assert.deepEqual(postProcess(raw([], [performer(), performer()])).tags, ["Duo", "FF"]);
+    assert.deepEqual(
+      postProcess(raw([], [performer({ gender: "male" }), performer({ gender: "male" })])).tags,
+      ["Duo", "MM"],
+    );
+    assert.deepEqual(
+      postProcess(raw([], [performer(), performer({ gender: "male" })])).tags,
+      ["Duo", "MF"],
+    );
+  });
+
+  it("adds 'Threesome' + 'FFF'/'MMM' for a same-gender trio", () => {
+    assert.deepEqual(postProcess(raw([], [performer(), performer(), performer()])).tags, ["Threesome", "FFF"]);
+    assert.deepEqual(
+      postProcess(raw([], [performer({ gender: "male" }), performer({ gender: "male" }), performer({ gender: "male" })])).tags,
+      ["Threesome", "MMM"],
+    );
   });
 
   it("adds 'Threesome' + 'FFM' for two females and one male", () => {

@@ -29,7 +29,7 @@ export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, 
       const totalStart = Date.now();
       const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
       const textStart = Date.now();
-      const textPromise = analyzeTitle(title, getTextClient(config)).then((result) => {
+      const textPromise = analyzeTitle(title, getTextClient(config), starring).then((result) => {
         const processTextMs = Date.now() - textStart;
         return { result, processTextMs };
       });

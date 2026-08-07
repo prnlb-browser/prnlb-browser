@@ -9,6 +9,17 @@ function stripCastAnnotation(text: string): string {
   return text.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Splits a scraped "Cast" string (e.g. "Jane Doe, John Smith (as Jane D.)")
+// into individual performer names — used to fall back to the parsed cast
+// when the AI title-analyzer doesn't find a given performer's name in the
+// title itself (src/ai/title-analyzer.ts).
+export function splitCastNames(starring: string | null): string[] {
+  return stripCastAnnotation(starring || "")
+    .split(/\s*[,;/]\s*|\s+&\s+/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
 function actressNamesFor(actress: Actress): string[] {
   return [actress.name, ...(actress.otherNames || [])].filter(Boolean);
 }

@@ -49,7 +49,7 @@ export async function analyzeBatch(
       const totalStart = Date.now();
       const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
       const textStart = Date.now();
-      const textPromise = analyzeTitle(item.title, getTextClient(config)).then((result) => {
+      const textPromise = analyzeTitle(item.title, getTextClient(config), item.starring).then((result) => {
         const processTextMs = Date.now() - textStart;
         return { result, processTextMs };
       });

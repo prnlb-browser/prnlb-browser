@@ -132,10 +132,19 @@ export function postProcess(raw: RawScreenshotResult): ScreenshotAnalysis {
   const total = performers.length;
 
   const sceneTags: string[] = [];
-  if (total === 3) {
+  if (total === 1) {
+    sceneTags.push("Solo");
+  } else if (total === 2) {
+    sceneTags.push("Duo");
+    if (femaleCount === 2) sceneTags.push("FF");
+    else if (maleCount === 2) sceneTags.push("MM");
+    else sceneTags.push("MF");
+  } else if (total === 3) {
     sceneTags.push("Threesome");
     if (femaleCount === 2 && maleCount === 1) sceneTags.push("FFM");
     else if (maleCount === 2 && femaleCount === 1) sceneTags.push("MMF");
+    else if (femaleCount === 3) sceneTags.push("FFF");
+    else if (maleCount === 3) sceneTags.push("MMM");
   } else if (total > 3) {
     sceneTags.push("Gangbang");
   }

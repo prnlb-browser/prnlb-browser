@@ -155,7 +155,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       const totalStart = Date.now();
       const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
       const textStart = Date.now();
-      const textPromise = analyzeTitle(item.title ?? item.fileName, getTextClient(config)).then((result) => {
+      const textPromise = analyzeTitle(item.title ?? item.fileName, getTextClient(config), item.starring).then((result) => {
         const processTextMs = Date.now() - textStart;
         return { result, processTextMs };
       });

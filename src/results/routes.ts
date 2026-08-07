@@ -184,7 +184,7 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       const totalStart = Date.now();
       const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
       const textStart = Date.now();
-      const textPromise = analyzeTitle(topic.title, getTextClient(config)).then((result) => {
+      const textPromise = analyzeTitle(topic.title, getTextClient(config), topic.starring).then((result) => {
         const processTextMs = Date.now() - textStart;
         return { result, processTextMs };
       });
