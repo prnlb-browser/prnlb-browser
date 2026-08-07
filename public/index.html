@@ -96,7 +96,7 @@
         </div>
       </div>
       <div class="card" id="ai-scoring-card">
-        <h2>AI Scoring Rules</h2>
+        <h2>AI Scoring Rules <span class="help-icon" title="Each rule contributes its weight × 50 to a topic's AI rating when it matches (a tag, a performer characteristic, or an actress) — starting from a neutral baseline of 50 and clamped to 0-100. Positive weights raise the rating, negative weights lower it; a rule that doesn't match contributes nothing. Non-matching rules are simply skipped, and multiple matches sum before the clamp.">?</span></h2>
         <div id="ai-rules-list"></div>
         <button id="btn-add-rule" class="btn btn-small">+ Add rule</button>
         <button id="btn-calc-rules-by-downloads" class="btn btn-small">🎲 Calculate by Downloads</button>
@@ -127,6 +127,7 @@
             Auto hide items with rate &lt;
           </label>
           <input type="number" id="cfg-ai-autohide-rating" min="0" max="100" value="50" style="width:4.5em" />
+          <span class="help-icon" title="Every item found by this crawl is analyzed with your AI Scoring Rules and hidden automatically if its rating comes back below this threshold. Rating starts at a neutral 50 and moves ±50 per matched rule's weight (clamped 0-100); items are only hidden once a rating was actually computed — if no rules are configured, nothing is hidden.">?</span>
         </div>
         <div class="actions" style="margin-top:1rem">
           <button id="btn-start" class="btn btn-primary btn-large">▶ Start Crawl</button>

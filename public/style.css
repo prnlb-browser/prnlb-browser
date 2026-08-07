@@ -88,6 +88,28 @@ h1 {
   font-size: 0.8rem;
 }
 
+/* Small "(?)" affordance for a native title="" tooltip explaining a
+   calculation — e.g. the AI rating formula behind a threshold/rule editor. */
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  margin-left: 0.4em;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75em;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: help;
+  user-select: none;
+  vertical-align: middle;
+}
+
 /* --- Forms --- */
 .form-row {
   display: flex;
