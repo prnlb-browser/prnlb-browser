@@ -30,6 +30,7 @@ let downloadedAiEnabled = false; // gates the bulk Analyze button + rating badge
 // enabled/disabled) takes effect on the next Downloaded refresh without a
 // page reload — same pattern as src/results/client.js.
 async function loadDownloadedAiEnabled() {
+  const wasEnabled = downloadedAiEnabled;
   try {
     const res = await fetch("/api/config");
     if (!res.ok) return;
@@ -39,6 +40,11 @@ async function loadDownloadedAiEnabled() {
     downloadedAiEnabled = false;
   }
   btnAnalyzeDownloaded.hidden = !downloadedAiEnabled;
+  // Cards already rendered (e.g. before switching to the Config tab and
+  // toggling AI) bake the per-item Analyze button + rating badge into their
+  // HTML at render time, so a flag change alone won't hide them — re-render
+  // to pick up the new value.
+  if (downloadedAiEnabled !== wasEnabled && downloadedItems.length) renderDownloadedItems();
 }
 loadDownloadedAiEnabled();
 

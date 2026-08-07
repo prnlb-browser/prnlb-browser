@@ -20,6 +20,7 @@ let searchAiEnabled = false; // gates the bulk Analyze button, per-item Analyze 
 // enabled/disabled) takes effect without a page reload — same pattern as
 // src/results/client.js and src/downloaded/client.js.
 async function loadSearchAiEnabled() {
+  const wasEnabled = searchAiEnabled;
   try {
     const res = await fetch("/api/config");
     if (!res.ok) return;
@@ -29,6 +30,28 @@ async function loadSearchAiEnabled() {
     searchAiEnabled = false;
   }
   btnAnalyzeSearch.hidden = !searchAiEnabled;
+  // Cards already rendered (e.g. before switching to the Config tab and
+  // toggling AI) bake the per-item Analyze button + rating badge into their
+  // HTML at render time, so a flag change alone won't hide them. Patch the
+  // existing cards directly rather than calling renderSearchResults() again,
+  // which would also re-trigger loadSearchDetails() and re-fetch every
+  // result's details over the network for no reason.
+  if (searchAiEnabled !== wasEnabled) {
+    searchResultsContainer.querySelectorAll(".result-card").forEach((card) => {
+      card.querySelector('[data-action="analyze"]')?.remove();
+      card.querySelector("[data-ai-rating-badge]")?.remove();
+      if (!searchAiEnabled) return;
+      const idx = parseInt(card.dataset.idx, 10);
+      const t = lastSearchResults[idx];
+      if (!t) return;
+      const addBtn = card.querySelector('[data-action="add"]');
+      if (addBtn) addBtn.insertAdjacentHTML("beforebegin", `<button class="btn btn-small" data-action="analyze">🤖 Analyze</button>`);
+      card.insertAdjacentHTML(
+        "beforeend",
+        `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>`
+      );
+    });
+  }
 }
 loadSearchAiEnabled();
 
