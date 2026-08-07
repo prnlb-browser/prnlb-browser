@@ -14,7 +14,7 @@ let isSearching = false;
 let isAnalyzingSearch = false;
 let lastSearchResults = []; // Store for referencing by index
 let searchDetailGeneration = 0; // Cancel stale detail loading
-let searchAiEnabled = false; // gates the bulk Analyze button — see loadSearchAiEnabled()
+let searchAiEnabled = false; // gates the bulk Analyze button, per-item Analyze button, and rating badge — see loadSearchAiEnabled()
 
 // Refreshed on load and after each search so a Config-tab change (AI
 // enabled/disabled) takes effect without a page reload — same pattern as
@@ -228,9 +228,11 @@ function renderSearchResults(topics) {
           <div class="result-actions">
             ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
             <button class="btn btn-small" data-action="screens" ${t.postImage ? "" : 'style="display:none"'}>🖼 Screens</button>
+            ${searchAiEnabled ? `<button class="btn btn-small" data-action="analyze">🤖 Analyze</button>` : ""}
             <button class="btn btn-small btn-add" data-action="add">➕ Add</button>
           </div>
         </div>
+        ${searchAiEnabled ? `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>` : ""}
       </div>`;
     })
     .join("");
@@ -466,7 +468,78 @@ searchResultsContainer.addEventListener("click", async (e) => {
     await openImageCarousel(topicUrl, title);
     return;
   }
+
+  // Handle "Analyze" button — standalone button next to Screens, mirrors
+  // src/results/client.js's analyzeTopic(). Like the bulk Analyze button,
+  // nothing is persisted — the score is only shown on this card.
+  const analyzeBtn = e.target.closest("[data-action='analyze']");
+  if (analyzeBtn) {
+    const card = analyzeBtn.closest(".result-card");
+    if (!card) return;
+    const idx = parseInt(card.dataset.idx, 10);
+    const topic = lastSearchResults[idx];
+    if (!topic) return;
+    await analyzeSearchItem(topic, card, analyzeBtn);
+    return;
+  }
 });
+
+// Note appended to every search rating tooltip — search results aren't in
+// the local topics DB, so unlike Results/Downloaded, nothing here persists.
+const SEARCH_RATING_NOTE = "\n\n(search results aren't saved — this rating is only shown for this search.)";
+
+// Runs the title + screenshot AI analysis for one search result card. Search
+// results aren't in the local topics DB, so nothing is persisted — the
+// rating badge (rendered as a placeholder whenever searchAiEnabled, same as
+// Results/Downloaded — see renderSearchResults) just gets updated in place
+// for this view. Unlike the bulk Analyze button, this always recalculates,
+// even if the card already has a rating from an earlier bulk/single run.
+async function analyzeSearchItem(topic, card, analyzeBtn) {
+  let badge = card.querySelector("[data-ai-rating-badge]");
+  const hadBadge = !!badge;
+  const prevText = badge?.textContent;
+  const prevTitle = badge?.title;
+  if (analyzeBtn) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = "🤖 Analyzing…";
+  }
+  if (badge) badge.textContent = "…";
+
+  try {
+    const res = await fetch("/api/search/item/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicUrl: topic.topicUrl, title: topic.title, starring: topic.starring ?? null }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+    topic.aiRating = data.aiRating;
+    if (!badge) {
+      badge = document.createElement("div");
+      badge.className = "ai-rating-badge";
+      badge.dataset.aiRatingBadge = "";
+      card.appendChild(badge);
+    }
+    badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
+    badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis) + SEARCH_RATING_NOTE;
+  } catch (err) {
+    if (badge) {
+      if (hadBadge) {
+        badge.textContent = prevText;
+        badge.title = prevTitle;
+      } else {
+        badge.remove();
+      }
+    }
+    alert(`Failed to analyze: ${err.message}`);
+  } finally {
+    if (analyzeBtn) {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = "🤖 Analyze";
+    }
+  }
+}
 
 btnSearch.addEventListener("click", () => performSearch());
 searchQuery.addEventListener("keydown", (e) => {
@@ -475,19 +548,29 @@ searchQuery.addEventListener("keydown", (e) => {
 
 // --- Search: bulk "Analyze" (current result page) ---
 // Analyzes lastSearchResults — the currently displayed search page. Search
-// results aren't in the local topics DB, so nothing is persisted; each
-// card just gets a rating badge for this view, created on the fly (there's
-// nothing to show before analyzing, unlike Results/Downloaded where an
-// unrated item still shows a "–" placeholder for a rating that could be
-// persisted).
+// results aren't in the local topics DB, so nothing is persisted server-side
+// — each card's badge (rendered as a "–" placeholder whenever searchAiEnabled,
+// same as Results/Downloaded) just gets updated in place for this view. Items
+// that already picked up a rating in this view — from an earlier bulk run or
+// a per-item Analyze click — are skipped, same "analyze what's new" behavior
+// as the Results/Downloaded bulk routes; use the per-item button on a card
+// to force a recalculation.
 btnAnalyzeSearch.addEventListener("click", async () => {
   if (isSearching || isAnalyzingSearch || lastSearchResults.length === 0) return;
+
+  const toAnalyze = lastSearchResults.filter((t) => t.aiRating == null);
+  const skipped = lastSearchResults.length - toAnalyze.length;
+  if (toAnalyze.length === 0) {
+    searchProgress.hidden = false;
+    searchProgressLog.textContent = `All ${lastSearchResults.length} result(s) already rated — nothing to analyze.\n`;
+    return;
+  }
 
   isAnalyzingSearch = true;
   btnAnalyzeSearch.disabled = true;
   btnAnalyzeSearch.textContent = "🤖 Analyzing…";
   searchProgress.hidden = false;
-  searchProgressLog.textContent = "";
+  searchProgressLog.textContent = skipped ? `${skipped} already-rated result(s) skipped.\n` : "";
   searchProgressBar.style.width = "0%";
 
   try {
@@ -495,7 +578,7 @@ btnAnalyzeSearch.addEventListener("click", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: lastSearchResults.map((t) => ({ topicUrl: t.topicUrl, title: t.title, starring: t.starring ?? null })),
+        items: toAnalyze.map((t) => ({ topicUrl: t.topicUrl, title: t.title, starring: t.starring ?? null })),
       }),
     });
 
@@ -521,6 +604,8 @@ btnAnalyzeSearch.addEventListener("click", async () => {
         } else if (data.phase === "item-done") {
           const pct = data.total ? Math.round((data.current / data.total) * 100) : 0;
           searchProgressBar.style.width = pct + "%";
+          const topic = lastSearchResults.find((t) => t.topicUrl === data.key);
+          if (topic) topic.aiRating = data.aiRating;
           const card = searchResultsContainer.querySelector(`.result-card[data-url="${cssEscape(data.key)}"]`);
           if (card) {
             let badge = card.querySelector("[data-ai-rating-badge]");
@@ -531,9 +616,7 @@ btnAnalyzeSearch.addEventListener("click", async () => {
               card.appendChild(badge);
             }
             badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title =
-              (data.aiRating == null ? "Not analyzed" : `AI score: ${Math.round(data.aiRating)}%`) +
-              " — search results aren't saved, this rating is only shown for this search.";
+            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis) + SEARCH_RATING_NOTE;
           }
         } else if (data.phase === "item-error") {
           searchProgressLog.textContent += `⚠️ ${data.message}\n`;

@@ -2,8 +2,43 @@ import type { RouteHandler } from "../core/server/router.js";
 import { json, readJson, startSse } from "../core/server/http.js";
 import { fetchForumOptions, fetchTopicDetails, searchPornolab } from "./scraper.js";
 import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
+import { getTextClient, getVisionClient } from "../ai/providers/index.js";
+import { analyzeTitle } from "../ai/title-analyzer.js";
+import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
+import { computeScore } from "../ai/scoring.js";
+import { matchActresses } from "../core/actress-match.js";
 
 export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, app }) => {
+  // POST /api/search/item/analyze — analyze a single search result card,
+  // mirroring /api/results/item/analyze (docs/ai.spec.md §10.1) but, like
+  // the batch route above, never persisting — search results aren't in the
+  // local topics DB, so the score is only returned for the client to show
+  // transiently on this one card.
+  if (url.pathname === "/api/search/item/analyze" && method === "POST") {
+    const { topicUrl, title, starring } = await readJson<{ topicUrl: string; title: string; starring?: string | null }>(req);
+    if (!topicUrl || !title) {
+      json(res, { error: "topicUrl and title are required" }, 400);
+      return true;
+    }
+    const config = app.loadConfig();
+    if (!config.ai.enabled) {
+      json(res, { error: "AI rating is not enabled" }, 400);
+      return true;
+    }
+    try {
+      const [titleAnalysis, screenshotAnalysis] = await Promise.all([
+        analyzeTitle(title, getTextClient(config)),
+        analyzeScreenshots(topicUrl, getVisionClient(config)),
+      ]);
+      const actressContext = matchActresses(title, starring ?? null, app.getActressStore().getAll());
+      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
+      json(res, { aiRating, titleAnalysis, screenshotAnalysis });
+    } catch (error) {
+      json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
+    }
+    return true;
+  }
+
   // POST /api/search/analyze-batch — bulk-analyze the current search result
   // page. Search results aren't in the local topics DB (they're live
   // tracker results, possibly never added), so nothing is persisted here —

@@ -199,6 +199,9 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
   // POST /api/results/analyze-batch — bulk-analyze the given topics (the
   // client's current filtered/sorted view), persisting each topic's score
   // as it completes so a slow batch doesn't lose progress if interrupted.
+  // Topics that already have an aiRating are skipped — the bulk action is
+  // "analyze what's new", not "recompute everything"; the per-item Analyze
+  // button (§10.1/10.2) is the way to force a recalculation of one topic.
   if (url.pathname === "/api/results/analyze-batch" && method === "POST") {
     const { topicUrls } = await readJson<{ topicUrls: string[] }>(req);
     const config = app.loadConfig();
@@ -213,9 +216,15 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
 
     const emit = startSse(res);
     const batchItems: BatchAnalyzeItem[] = [];
+    let skipped = 0;
     for (const topicUrl of topicUrls) {
       const topic = store.getByUrl(topicUrl);
-      if (topic) batchItems.push({ key: topicUrl, title: topic.title, topicUrl, starring: topic.starring });
+      if (!topic) continue;
+      if (topic.aiRating != null) {
+        skipped++;
+        continue;
+      }
+      batchItems.push({ key: topicUrl, title: topic.title, topicUrl, starring: topic.starring });
     }
 
     const actresses = app.getActressStore().getAll();
@@ -227,7 +236,12 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       }
       emit(event);
     });
-    emit({ phase: "done", message: `Analyzed ${analyzed}/${topicUrls.length} item(s)`, analyzed, total: topicUrls.length });
+    emit({
+      phase: "done",
+      message: `Analyzed ${analyzed}/${topicUrls.length} item(s)${skipped ? ` (${skipped} already rated, skipped)` : ""}`,
+      analyzed,
+      total: topicUrls.length,
+    });
     res.end();
     return true;
   }

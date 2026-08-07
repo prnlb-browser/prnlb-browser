@@ -10,6 +10,11 @@ import type { DownloadedItem } from "../core/types.js";
 import { getKnownTags } from "../core/known-tags.js";
 import { validateFolderPath } from "../core/fs-paths.js";
 import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
+import { getTextClient, getVisionClient } from "../ai/providers/index.js";
+import { analyzeTitle } from "../ai/title-analyzer.js";
+import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
+import { computeScore } from "../ai/scoring.js";
+import { matchActresses } from "../core/actress-match.js";
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -122,11 +127,52 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
     return true;
   }
 
+  // POST /api/downloaded/item/analyze — analyze a single item, mirroring
+  // /api/results/item/analyze (see docs/ai.spec.md §10.1). Requires a
+  // matched topicUrl since screenshot analysis needs one, same guard the
+  // batch route applies when filtering items.
+  if (url.pathname === "/api/downloaded/item/analyze" && method === "POST") {
+    const { id } = await readJson<{ id: number }>(req);
+    if (!id) {
+      json(res, { error: "id is required" }, 400);
+      return true;
+    }
+    const config = app.loadConfig();
+    if (!config.ai.enabled) {
+      json(res, { error: "AI rating is not enabled" }, 400);
+      return true;
+    }
+    const item = store.getById(id);
+    if (!item) {
+      json(res, { error: "Item not found" }, 404);
+      return true;
+    }
+    if (!item.topicUrl) {
+      json(res, { error: "Item has no matched topic URL — screenshot analysis needs one" }, 400);
+      return true;
+    }
+    try {
+      const [titleAnalysis, screenshotAnalysis] = await Promise.all([
+        analyzeTitle(item.title ?? item.fileName, getTextClient(config)),
+        analyzeScreenshots(item.topicUrl, getVisionClient(config)),
+      ]);
+      const actressContext = matchActresses(item.title ?? item.fileName, item.starring, app.getActressStore().getAll());
+      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
+      store.setAiRating(id, aiRating);
+      json(res, { aiRating, titleAnalysis, screenshotAnalysis });
+    } catch (error) {
+      json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
+    }
+    return true;
+  }
+
   // POST /api/downloaded/analyze-batch — bulk-analyze the given items (the
   // client's current filtered/sorted view), persisting each item's score as
   // it completes. Items without a matched topicUrl are skipped (screenshot
   // analysis needs one) — the client is expected to have filtered those out
-  // already, but this is re-checked defensively.
+  // already, but this is re-checked defensively. Items that already have an
+  // aiRating are also skipped — same "analyze what's new" reasoning as the
+  // Results bulk route; use the per-item Analyze button to force a redo.
   if (url.pathname === "/api/downloaded/analyze-batch" && method === "POST") {
     const { ids } = await readJson<{ ids: number[] }>(req);
     const config = app.loadConfig();
@@ -141,11 +187,15 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
 
     const emit = startSse(res);
     const batchItems: BatchAnalyzeItem[] = [];
+    let skipped = 0;
     for (const id of ids) {
       const item = store.getById(id);
-      if (item?.topicUrl) {
-        batchItems.push({ key: String(id), title: item.title ?? item.fileName, topicUrl: item.topicUrl, starring: item.starring });
+      if (!item?.topicUrl) continue;
+      if (item.aiRating != null) {
+        skipped++;
+        continue;
       }
+      batchItems.push({ key: String(id), title: item.title ?? item.fileName, topicUrl: item.topicUrl, starring: item.starring });
     }
 
     const actresses = app.getActressStore().getAll();
@@ -157,7 +207,12 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       }
       emit(event);
     });
-    emit({ phase: "done", message: `Analyzed ${analyzed}/${ids.length} item(s)`, analyzed, total: ids.length });
+    emit({
+      phase: "done",
+      message: `Analyzed ${analyzed}/${ids.length} item(s)${skipped ? ` (${skipped} already rated, skipped)` : ""}`,
+      analyzed,
+      total: ids.length,
+    });
     res.end();
     return true;
   }

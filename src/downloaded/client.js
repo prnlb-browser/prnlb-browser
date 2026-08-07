@@ -330,6 +330,7 @@ function renderDownloadedItems() {
             </div>
             <button class="btn btn-small" data-action="play">▶ Play</button>
             <button class="btn btn-small" data-action="screens" ${item.topicUrl ? "" : 'style="display:none"'}>🖼 Screens</button>
+            ${downloadedAiEnabled ? `<button class="btn btn-small" data-action="analyze" ${item.topicUrl ? "" : 'style="display:none"'}>🤖 Analyze</button>` : ""}
             <button class="btn btn-small" data-action="show-in-finder">📂 Show in Finder</button>
           </div>
           <div class="item-tags" data-item-tags>
@@ -461,6 +462,16 @@ downloadedContainer.addEventListener("click", async (e) => {
     return;
   }
 
+  // Analyze — standalone button next to Screens, mirrors src/results/client.js's analyzeTopic().
+  const analyzeBtn = e.target.closest("[data-action='analyze']");
+  if (analyzeBtn) {
+    const card = analyzeBtn.closest(".result-card");
+    const id = parseInt(card.dataset.id, 10);
+    if (!id) return;
+    await analyzeDownloadedItem(id, card);
+    return;
+  }
+
   // Show in Finder
   const finderBtn = e.target.closest("[data-action='show-in-finder']");
   if (finderBtn) {
@@ -516,6 +527,45 @@ downloadedContainer.addEventListener("click", async (e) => {
     return;
   }
 });
+
+// Runs the title + screenshot AI analysis for one item, persists the
+// resulting score via /api/downloaded/item/analyze, and updates the card's
+// rating badge in place. Mirrors src/results/client.js's analyzeTopic().
+async function analyzeDownloadedItem(id, card) {
+  const badge = card.querySelector("[data-ai-rating-badge]");
+  const analyzeBtn = card.querySelector('[data-action="analyze"]');
+  if (analyzeBtn) {
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = "🤖 Analyzing…";
+  }
+  if (badge) badge.textContent = "…";
+
+  try {
+    const res = await fetch("/api/downloaded/item/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+    const item = downloadedItems.find((i) => i.id === id);
+    if (item) item.aiRating = data.aiRating;
+    card.dataset.aiRating = data.aiRating == null ? "" : String(data.aiRating);
+    if (badge) {
+      badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
+      badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis);
+    }
+  } catch (err) {
+    if (badge) badge.textContent = card.dataset.aiRating ? `${Math.round(card.dataset.aiRating)}%` : "–";
+    alert(`Failed to analyze: ${err.message}`);
+  } finally {
+    if (analyzeBtn) {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = "🤖 Analyze";
+    }
+  }
+}
 
 // --- Downloaded: Edit modal ---
 
@@ -977,8 +1027,11 @@ if (downloadedSortDir) {
 // Analyzes visibleDownloadedItems — i.e. exactly what's on screen after the
 // active search/actress/tag filters and sort, same "current page/filters
 // applied" set the toolbar already shows. Items without a matched topicUrl
-// can't be analyzed (screenshot analysis needs one) and are skipped
-// up front rather than sent to the server at all.
+// can't be analyzed (screenshot analysis needs one) and are skipped up
+// front rather than sent to the server at all. Items that already have a
+// rating are also skipped, but server-side (see /api/downloaded/analyze-batch)
+// since this button is "analyze what's new" — use the per-item Analyze
+// button on a card to force a recalculation of that one item.
 btnAnalyzeDownloaded.addEventListener("click", async () => {
   if (isAnalyzingDownloaded || isScanning) return;
   const eligible = visibleDownloadedItems.filter((item) => !!item.topicUrl);
@@ -1030,7 +1083,7 @@ btnAnalyzeDownloaded.addEventListener("click", async () => {
           const badge = card?.querySelector("[data-ai-rating-badge]");
           if (badge) {
             badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title = data.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(data.aiRating)}%`;
+            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis);
           }
         } else if (data.phase === "item-error") {
           downloadedProgressLog.textContent += `⚠️ ${data.message}\n`;

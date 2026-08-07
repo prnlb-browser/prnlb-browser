@@ -330,11 +330,7 @@ async function analyzeTopic(topicUrl, card) {
     card.dataset.aiRating = data.aiRating == null ? "" : String(data.aiRating);
     if (badge) {
       badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-      badge.title = JSON.stringify(
-        { aiRating: data.aiRating, titleAnalysis: data.titleAnalysis, screenshotAnalysis: data.screenshotAnalysis },
-        null,
-        2,
-      );
+      badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis);
     }
   } catch (err) {
     if (badge) badge.textContent = card.dataset.aiRating ? `${Math.round(card.dataset.aiRating)}%` : "–";
@@ -644,7 +640,10 @@ async function deleteTopicFromDb(topicUrl, card) {
 // --- Results: bulk "Analyze" (current filtered view) ---
 // Analyzes visibleResults — exactly what's on screen after the active
 // search/forum/actress/hidden/tag filters, same "current page/filters
-// applied" set the toolbar already shows.
+// applied" set the toolbar already shows. Topics that already have a rating
+// are skipped server-side (see /api/results/analyze-batch) — this button is
+// "analyze what's new"; use the per-item Analyze button on a card to force
+// a recalculation of that one topic.
 btnAnalyzeResults.addEventListener("click", async () => {
   if (isAnalyzingResults || visibleResults.length === 0) return;
 
@@ -690,7 +689,7 @@ btnAnalyzeResults.addEventListener("click", async () => {
           const badge = card?.querySelector("[data-ai-rating-badge]");
           if (badge) {
             badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title = data.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(data.aiRating)}%`;
+            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis);
           }
         } else if (data.phase === "item-error") {
           resultsProgressLog.textContent += `⚠️ ${data.message}\n`;
