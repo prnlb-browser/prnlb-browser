@@ -177,7 +177,7 @@ async function fetchAndResizeScreenshots(topicUrl: string, limits?: ScreenshotLi
   const maxDimension = limits?.maxDimension ?? DEFAULT_MAX_DIMENSION;
   const scraped = await scrapeTopicImages(topicUrl);
   const resolved = await resolverRegistry.resolveImages(scraped);
-  const chosen = resolved.slice(0, maxImages);
+  const chosen = pickRandomInOrder(resolved, maxImages);
 
   const buffers: Buffer[] = [];
   for (const image of chosen) {
@@ -187,6 +187,22 @@ async function fetchAndResizeScreenshots(topicUrl: string, limits?: ScreenshotLi
     if (resized) buffers.push(resized);
   }
   return buffers;
+}
+
+// Picks `count` items at random (no replacement) but returns them in their
+// original relative order, so a scene's screenshots still read chronologic-
+// ally even though which ones got picked isn't just "the first N".
+function pickRandomInOrder<T>(items: T[], count: number): T[] {
+  if (items.length <= count) return items;
+  const indices = items.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices
+    .slice(0, count)
+    .sort((a, b) => a - b)
+    .map((i) => items[i]);
 }
 
 async function fetchImageBytes(url: string): Promise<Buffer | null> {
