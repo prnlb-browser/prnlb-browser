@@ -48,6 +48,10 @@ export class ConfigStore {
         ai: {
           ...defaultAi,
           ...parsed.ai,
+          // AI feature temporarily disabled app-wide; ignore whatever is on
+          // disk so every route/tab that reads config.ai.enabled agrees,
+          // regardless of what config.json says.
+          enabled: false,
           ollama: { ...defaultAi.ollama, ...parsed.ai?.ollama },
           openrouter: { ...defaultAi.openrouter, ...parsed.ai?.openrouter },
           scoring: { ...defaultAi.scoring, ...parsed.ai?.scoring },

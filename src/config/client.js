@@ -171,7 +171,7 @@ function fillForm() {
   document.getElementById("cfg-headless").checked = config.headless;
   document.getElementById("cfg-delay-min").value = config.delay?.min ?? 2000;
   document.getElementById("cfg-delay-max").value = config.delay?.max ?? 5000;
-  cfgAiEnabled.checked = config.ai.enabled;
+  cfgAiEnabled.checked = false; // AI rating temporarily disabled; checkbox is also `disabled` in index.html
   cfgAiProvider.value = config.ai.provider;
   document.getElementById("cfg-ai-ollama-url").value = config.ai.ollama.baseUrl;
   document.getElementById("cfg-ai-ollama-text-model").value = config.ai.ollama.textModel;
@@ -198,7 +198,7 @@ function collectForm() {
     min: parseInt(document.getElementById("cfg-delay-min").value, 10) || 2000,
     max: parseInt(document.getElementById("cfg-delay-max").value, 10) || 5000,
   };
-  config.ai.enabled = cfgAiEnabled.checked;
+  config.ai.enabled = false; // AI rating temporarily disabled; checkbox is also `disabled` in index.html
   config.ai.provider = cfgAiProvider.value;
   config.ai.ollama.baseUrl = document.getElementById("cfg-ai-ollama-url").value.trim();
   config.ai.ollama.textModel = document.getElementById("cfg-ai-ollama-text-model").value.trim();

@@ -119,6 +119,10 @@ h1 {
   margin-bottom: 0.75rem;
 }
 
+.form-row[hidden] {
+  display: none;
+}
+
 .form-row > label {
   flex-shrink: 0;
   font-size: 0.9rem;

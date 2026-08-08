@@ -54,7 +54,8 @@ describe("ConfigStore", () => {
       const partial = { ...getDefaultConfig(), ai: { enabled: true, provider: "openrouter" } };
       fs.writeFileSync(store.path, JSON.stringify(partial), "utf-8");
       const loaded = store.load();
-      assert.equal(loaded.ai.enabled, true);
+      // AI is force-disabled app-wide regardless of what's on disk (temporary).
+      assert.equal(loaded.ai.enabled, false);
       assert.equal(loaded.ai.provider, "openrouter");
       assert.deepEqual(loaded.ai.ollama, getDefaultConfig().ai.ollama);
       assert.deepEqual(loaded.ai.openrouter, getDefaultConfig().ai.openrouter);
