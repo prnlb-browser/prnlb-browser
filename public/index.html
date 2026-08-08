@@ -46,6 +46,13 @@
         </div>
       </div>
       <div class="card">
+        <h2>Screenshot Cache</h2>
+        <div class="form-row">
+          <label>Max cache size (MB) <span class="help-icon" title="Topic screenshots fetched by AI analysis and by the 'Screens' preview carousel are cached on disk (shared by both) so viewing/analyzing the same topic again doesn't re-download them. Oldest cached files are deleted first once this limit is exceeded. Set to 0 to disable caching.">?</span></label>
+          <input type="number" id="cfg-cache-max-size" min="0" max="10000" step="10" value="200" />
+        </div>
+      </div>
+      <div class="card">
         <h2>AI Topic Rating</h2>
         <div class="form-row">
           <label>Enable AI rating</label>

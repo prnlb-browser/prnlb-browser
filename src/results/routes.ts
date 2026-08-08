@@ -190,7 +190,10 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       });
       const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
         textPromise,
-        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
+        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots, {
+          userDataDir: app.userDataDir,
+          maxSizeMB: config.screenshotCache.maxSizeMB,
+        }),
       ]);
       const actressContext = matchActresses(topic.title, topic.starring, app.getActressStore().getAll());
       const ratesStart = Date.now();
@@ -253,7 +256,7 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
         analyzed++;
       }
       emit(event);
-    });
+    }, app.userDataDir);
     emit({
       phase: "done",
       message: `Analyzed ${analyzed}/${topicUrls.length} item(s)${skipped ? ` (${skipped} already rated, skipped)` : ""}`,

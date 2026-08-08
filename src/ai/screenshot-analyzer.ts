@@ -1,7 +1,8 @@
 import { Jimp, JimpMime } from "jimp";
 import { scrapeTopicImages } from "../core/images/topic-scraper.js";
 import { resolverRegistry } from "../core/images/registry.js";
-import { downloadImageViaBrowser } from "../core/images/browser-download.js";
+import { fetchImageBytes } from "../core/images/fetch-bytes.js";
+import { readCachedScreenshot, resolveScreenshotCacheDir, writeCachedScreenshot } from "../core/images/screenshot-cache.js";
 import type { AiProviderClient } from "./providers/types.js";
 import type { PerformerCharacteristics, ScreenshotAnalysis } from "./types.js";
 import type { SceneCompositionTag } from "../core/types.js";
@@ -19,6 +20,15 @@ const JPEG_QUALITY = 85;
 export interface ScreenshotLimits {
   maxImages: number;
   maxDimension: number;
+}
+
+// The on-disk screenshot cache (src/core/images/screenshot-cache.ts) is
+// shared with the topic-image preview proxy (src/core/images/routes.ts), so
+// its size cap lives on the top-level Config, not AiConfig — this just
+// threads userDataDir + that cap through to fetchAndResizeScreenshots.
+export interface ScreenshotCacheOptions {
+  userDataDir: string;
+  maxSizeMB: number;
 }
 
 const CHARACTERISTIC_SCHEMA = {
@@ -97,9 +107,12 @@ export async function analyzeScreenshots(
   client: AiProviderClient,
   timings?: ScreenshotTimings,
   limits?: ScreenshotLimits,
+  // Optional so callers that don't have a cache to offer (e.g. tests) can
+  // omit it, in which case caching is simply skipped.
+  cache?: ScreenshotCacheOptions,
 ): Promise<ScreenshotAnalysis> {
   const fetchStart = Date.now();
-  const images = await fetchAndResizeScreenshots(topicUrl, limits);
+  const images = await fetchAndResizeScreenshots(topicUrl, limits, cache);
   if (timings) timings.getImagesMs = Date.now() - fetchStart;
   if (images.length === 0) {
     if (timings) timings.processScreensMs = 0;
@@ -172,19 +185,31 @@ function mergeTags(tags: string[], extra: string[]): string[] {
   return merged;
 }
 
-async function fetchAndResizeScreenshots(topicUrl: string, limits?: ScreenshotLimits): Promise<Buffer[]> {
+async function fetchAndResizeScreenshots(topicUrl: string, limits?: ScreenshotLimits, cache?: ScreenshotCacheOptions): Promise<Buffer[]> {
   const maxImages = limits?.maxImages ?? DEFAULT_MAX_IMAGES;
   const maxDimension = limits?.maxDimension ?? DEFAULT_MAX_DIMENSION;
+  const cacheMaxSizeMB = cache?.maxSizeMB ?? 0;
+  const cacheDir = cache && cacheMaxSizeMB > 0 ? resolveScreenshotCacheDir(cache.userDataDir) : null;
   const scraped = await scrapeTopicImages(topicUrl);
   const resolved = await resolverRegistry.resolveImages(scraped);
   const chosen = pickRandomInOrder(resolved, maxImages);
 
   const buffers: Buffer[] = [];
   for (const image of chosen) {
+    // maxDimension is part of the key so a later config change (bigger
+    // resize target) doesn't get served a stale, too-small cached image.
+    const cacheKey = `${image.resolvedUrl}::${maxDimension}`;
+    const cached = cacheDir ? readCachedScreenshot(cacheDir, cacheKey) : null;
+    if (cached) {
+      buffers.push(cached);
+      continue;
+    }
     const bytes = await fetchImageBytes(image.resolvedUrl);
     if (!bytes) continue;
     const resized = await resizeImage(bytes, maxDimension);
-    if (resized) buffers.push(resized);
+    if (!resized) continue;
+    buffers.push(resized);
+    if (cacheDir) writeCachedScreenshot(cacheDir, cacheKey, resized, cacheMaxSizeMB);
   }
   return buffers;
 }
@@ -203,19 +228,6 @@ function pickRandomInOrder<T>(items: T[], count: number): T[] {
     .slice(0, count)
     .sort((a, b) => a - b)
     .map((i) => items[i]);
-}
-
-async function fetchImageBytes(url: string): Promise<Buffer | null> {
-  try {
-    const response = await fetch(url);
-    if (response.ok) return Buffer.from(await response.arrayBuffer());
-    // Some hosts Cloudflare-gate plain HTTP clients but serve the same
-    // image fine to a real browser — same fallback used by downloader.ts.
-    if (response.status === 403) return await downloadImageViaBrowser(url);
-  } catch {
-    // Fall through to null below.
-  }
-  return null;
 }
 
 async function resizeImage(bytes: Buffer, maxDimension: number): Promise<Buffer | null> {

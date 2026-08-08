@@ -161,7 +161,10 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       });
       const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
         textPromise,
-        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
+        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots, {
+          userDataDir: app.userDataDir,
+          maxSizeMB: config.screenshotCache.maxSizeMB,
+        }),
       ]);
       const actressContext = matchActresses(item.title ?? item.fileName, item.starring, app.getActressStore().getAll());
       const ratesStart = Date.now();
@@ -222,7 +225,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
         analyzed++;
       }
       emit(event);
-    });
+    }, app.userDataDir);
     emit({
       phase: "done",
       message: `Analyzed ${analyzed}/${ids.length} item(s)${skipped ? ` (${skipped} already rated, skipped)` : ""}`,

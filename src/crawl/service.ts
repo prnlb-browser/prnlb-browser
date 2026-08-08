@@ -59,7 +59,7 @@ async function autoHideLowRated(app: AppContext, config: Config, items: TopicDat
         total: event.total,
       });
     }
-  });
+  }, app.userDataDir);
   app.emitCrawlProgress({
     phase: "analyzing",
     message: `Auto-hide: ${hiddenCount} item(s) hidden (rating below ${threshold}%)`,

@@ -111,6 +111,14 @@ export interface Config {
   delay: { min: number; max: number };
   dbPath: string;
   downloadedFolder?: string;
+  // Shared on-disk cache (src/core/images/screenshot-cache.ts) for topic
+  // screenshots — used by both the AI screenshot analyzer
+  // (src/ai/screenshot-analyzer.ts) and the "Screens" preview carousel's
+  // image proxy (src/core/images/routes.ts), so a topic viewed once doesn't
+  // get re-fetched by the other feature. When a write would push the cache
+  // over this limit, the oldest (by last-read time) files are deleted
+  // first. 0 disables the cache entirely.
+  screenshotCache: { maxSizeMB: number };
   ai: AiConfig;
 }
 

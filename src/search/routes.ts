@@ -35,7 +35,10 @@ export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, 
       });
       const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
         textPromise,
-        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
+        analyzeScreenshots(topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots, {
+          userDataDir: app.userDataDir,
+          maxSizeMB: config.screenshotCache.maxSizeMB,
+        }),
       ]);
       const actressContext = matchActresses(title, starring ?? null, app.getActressStore().getAll());
       const ratesStart = Date.now();
@@ -79,7 +82,7 @@ export const handleSearchRoutes: RouteHandler = async ({ req, res, url, method, 
       .map((item) => ({ key: item.topicUrl, title: item.title, topicUrl: item.topicUrl, starring: item.starring ?? null }));
 
     const actresses = app.getActressStore().getAll();
-    await analyzeBatch(batchItems, config, actresses, emit);
+    await analyzeBatch(batchItems, config, actresses, emit, app.userDataDir);
     emit({ phase: "done", message: `Analyzed ${batchItems.length}/${items.length} item(s)`, analyzed: batchItems.length, total: items.length });
     res.end();
     return true;

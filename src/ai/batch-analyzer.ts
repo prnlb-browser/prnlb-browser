@@ -40,6 +40,7 @@ export async function analyzeBatch(
   config: Config,
   actresses: Actress[],
   onProgress: (event: BatchAnalyzeProgress) => void,
+  userDataDir: string,
 ): Promise<void> {
   onProgress({ phase: "start", total: items.length, message: `Analyzing ${items.length} item(s)...` });
   for (let i = 0; i < items.length; i++) {
@@ -55,7 +56,10 @@ export async function analyzeBatch(
       });
       const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
         textPromise,
-        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots),
+        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots, {
+          userDataDir,
+          maxSizeMB: config.screenshotCache.maxSizeMB,
+        }),
       ]);
       const actressContext = matchActresses(item.title, item.starring, actresses);
       const ratesStart = Date.now();

@@ -141,7 +141,7 @@ function showCarouselImage(index) {
   carouselIndex = index;
 
   const img = carouselImages[index];
-  carouselImg.src = img.resolvedUrl;
+  carouselImg.src = `/api/topic/image?url=${encodeURIComponent(img.resolvedUrl)}`;
   carouselImg.style.display = "block";
   carouselLoading.hidden = true;
 

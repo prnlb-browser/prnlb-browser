@@ -23,6 +23,7 @@ export function getDefaultConfig(): Config {
     delay: { min: 2000, max: 5000 },
     dbPath: "data.db",
     downloadedFolder: "",
+    screenshotCache: { maxSizeMB: 200 },
     ai: getDefaultAiConfig(),
   };
 }
@@ -37,11 +38,13 @@ export class ConfigStore {
   load(): Config {
     try {
       const parsed = JSON.parse(fs.readFileSync(this.path, "utf-8")) as Partial<Config>;
-      // Backfill `ai` for configs saved before this feature existed, so the
-      // rest of the app can treat Config.ai as always present.
+      // Backfill `ai` and `screenshotCache` for configs saved before those
+      // fields existed, so the rest of the app can treat them as always present.
       const defaultAi = getDefaultAiConfig();
+      const defaultConfig = getDefaultConfig();
       return {
         ...parsed,
+        screenshotCache: { ...defaultConfig.screenshotCache, ...parsed.screenshotCache },
         ai: {
           ...defaultAi,
           ...parsed.ai,

@@ -51,7 +51,10 @@ export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, 
       try {
         const [titleAnalysis, screenshotAnalysis] = await Promise.all([
           analyzeTitle(label, getTextClient(config)),
-          analyzeScreenshots(item.topicUrl!, getVisionClient(config), undefined, config.ai.screenshots),
+          analyzeScreenshots(item.topicUrl!, getVisionClient(config), undefined, config.ai.screenshots, {
+            userDataDir: app.userDataDir,
+            maxSizeMB: config.screenshotCache.maxSizeMB,
+          }),
         ]);
         analyses.push({ title: titleAnalysis, screenshots: screenshotAnalysis });
       } catch (error) {

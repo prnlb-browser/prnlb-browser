@@ -181,6 +181,7 @@ function fillForm() {
   document.getElementById("cfg-ai-openrouter-vision-model").value = config.ai.openrouter.visionModel;
   document.getElementById("cfg-ai-max-images").value = config.ai.screenshots.maxImages;
   document.getElementById("cfg-ai-max-dimension").value = config.ai.screenshots.maxDimension;
+  document.getElementById("cfg-cache-max-size").value = config.screenshotCache.maxSizeMB;
   document.getElementById("cfg-ai-autohide-enabled").checked = config.ai.autoHide.enabled;
   document.getElementById("cfg-ai-autohide-rating").value = config.ai.autoHide.belowRating;
   renderAiFields();
@@ -207,6 +208,7 @@ function collectForm() {
   config.ai.openrouter.visionModel = document.getElementById("cfg-ai-openrouter-vision-model").value.trim();
   config.ai.screenshots.maxImages = parseInt(document.getElementById("cfg-ai-max-images").value, 10) || 4;
   config.ai.screenshots.maxDimension = parseInt(document.getElementById("cfg-ai-max-dimension").value, 10) || 896;
+  config.screenshotCache.maxSizeMB = Math.max(0, parseInt(document.getElementById("cfg-cache-max-size").value, 10) || 0);
   config.ai.autoHide.enabled = document.getElementById("cfg-ai-autohide-enabled").checked;
   config.ai.autoHide.belowRating = Math.max(0, Math.min(100, parseInt(document.getElementById("cfg-ai-autohide-rating").value, 10) || 0));
 }
