@@ -88,6 +88,12 @@ h1 {
   font-size: 0.8rem;
 }
 
+.card-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
 /* Small "(?)" affordance for a native title="" tooltip explaining a
    calculation — e.g. the AI rating formula behind a threshold/rule editor. */
 .help-icon {

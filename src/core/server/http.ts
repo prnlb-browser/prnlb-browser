@@ -31,7 +31,14 @@ export function startSse(res: http.ServerResponse): SseEmitter {
   res.flushHeaders();
 
   return (data: unknown) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (res.writableEnded || res.destroyed) return;
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch {
+      // The renderer may close the carousel while a resolver is still
+      // finishing. The route's AbortController handles stopping the work.
+      return;
+    }
     const flushable = res as http.ServerResponse & { flush?: () => void };
     flushable.flush?.();
   };

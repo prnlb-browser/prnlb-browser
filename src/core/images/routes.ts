@@ -29,15 +29,29 @@ export const handleImageRoutes: RouteHandler = async ({ req, res, url, method, a
     }
 
     const emit = startSse(res);
+    const controller = new AbortController();
+    const onResponseClose = () => {
+      // A closed carousel means the renderer no longer needs the result. Do
+      // not abort after the route has completed normally.
+      if (!res.writableEnded) controller.abort();
+    };
+    res.on("close", onResponseClose);
+
     try {
-      const scraped = await scrapeTopicImages(topicUrl, emit);
+      const scraped = await scrapeTopicImages(topicUrl, emit, controller.signal);
       const handled = scraped.filter((image) => resolverRegistry.findResolver(image.resolveUrl));
-      const images = await resolverRegistry.resolveImages(handled, emit);
-      emit({ phase: "done", images, total: scraped.length, resolved: images.length });
+      const images = await resolverRegistry.resolveImages(handled, emit, controller.signal);
+      if (!controller.signal.aborted) {
+        emit({ phase: "done", images, total: scraped.length, resolved: images.length });
+      }
     } catch (error) {
-      emit({ phase: "error", message: (error as Error).message });
+      if (!controller.signal.aborted) {
+        emit({ phase: "error", message: (error as Error).message });
+      }
+    } finally {
+      res.removeListener("close", onResponseClose);
+      if (!res.writableEnded) res.end();
     }
-    res.end();
     return true;
   }
 
@@ -46,7 +60,7 @@ export const handleImageRoutes: RouteHandler = async ({ req, res, url, method, a
   // cache the AI screenshot analyzer uses (Config.screenshotCache, see
   // src/core/images/screenshot-cache.ts), so viewing a topic's screenshots
   // and AI-analyzing it don't each fetch the images separately. `url` is
-  // restricted to hosts a resolver recognizes (fastpic/imgbox) rather than
+  // restricted to hosts a resolver recognizes (fastpic/imgbox/turboimagehost) rather than
   // proxying arbitrary URLs, since this endpoint is otherwise a same-origin
   // fetch-any-URL primitive.
   if (url.pathname === "/api/topic/image" && method === "GET") {

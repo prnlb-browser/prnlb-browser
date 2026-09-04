@@ -1,6 +1,7 @@
 import type { ImageHostResolver, ResolvedImage, ScrapedImage } from "./types.js";
 import { FastpicResolver } from "./fastpic.js";
 import { ImgboxResolver } from "./imgbox.js";
+import { TurboImageHostResolver } from "./turboimagehost.js";
 
 /**
  * Registry of all available image host resolvers.
@@ -13,6 +14,7 @@ class ResolverRegistry {
     // Register built-in resolvers
     this.register(new FastpicResolver());
     this.register(new ImgboxResolver());
+    this.register(new TurboImageHostResolver());
   }
 
   /**
@@ -20,6 +22,15 @@ class ResolverRegistry {
    */
   register(resolver: ImageHostResolver): void {
     this.resolvers.push(resolver);
+  }
+
+  /** Clear the dedicated browser profile used for TurboImageHost resolution. */
+  async clearTurboImageHostVerificationData(): Promise<void> {
+    const resolver = this.resolvers.find(
+      (candidate): candidate is TurboImageHostResolver => candidate instanceof TurboImageHostResolver,
+    );
+    if (!resolver) throw new Error("TurboImageHost resolver is not registered");
+    await resolver.clearVerificationData();
   }
 
   /**
@@ -37,11 +48,14 @@ class ResolverRegistry {
   async resolveImages(
     images: ScrapedImage[],
     onProgress?: (p: { phase: string; message: string; current: number; total: number }) => void,
+    signal?: AbortSignal,
   ): Promise<ResolvedImage[]> {
     const results: ResolvedImage[] = [];
     const total = images.length;
 
     for (let i = 0; i < images.length; i++) {
+      if (signal?.aborted) break;
+
       const img = images[i]!;
       const resolver = this.findResolver(img.resolveUrl);
       if (!resolver) continue;
@@ -50,7 +64,8 @@ class ResolverRegistry {
         onProgress({ phase: "resolving", message: `Resolving ${i + 1}/${total}...`, current: i + 1, total });
       }
 
-      const resolvedUrl = await resolver.resolve(img.resolveUrl);
+      const resolvedUrl = await resolver.resolve(img.resolveUrl, signal);
+      if (signal?.aborted) break;
       if (resolvedUrl) {
         results.push({
           originalUrl: img.resolveUrl,

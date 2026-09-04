@@ -2,6 +2,7 @@
 
 let carouselImages = [];
 let carouselIndex = 0;
+let carouselRequestController = null;
 
 const modalOverlay = document.getElementById("image-modal");
 const modalTitle = document.getElementById("modal-title");
@@ -32,12 +33,18 @@ carouselImg.addEventListener("click", () => {
 });
 
 function closeCarousel() {
+  carouselRequestController?.abort();
+  carouselRequestController = null;
   modalOverlay.hidden = true;
   carouselImages = [];
   carouselIndex = 0;
 }
 
 async function openImageCarousel(topicUrl, title) {
+  carouselRequestController?.abort();
+  const requestController = new AbortController();
+  carouselRequestController = requestController;
+
   modalOverlay.hidden = false;
   modalTitle.textContent = `📷 ${title}`;
   carouselImg.src = "";
@@ -93,6 +100,7 @@ async function openImageCarousel(topicUrl, title) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topicUrl }),
+      signal: requestController.signal,
     });
 
     // Stream SSE events from the response
@@ -115,7 +123,13 @@ async function openImageCarousel(topicUrl, title) {
       if (processLines(lines.join("\n"))) return;
     }
   } catch (err) {
-    progressText.textContent = `Error: ${err.message}`;
+    if (err.name !== "AbortError" && !modalOverlay.hidden) {
+      progressText.textContent = `Error: ${err.message}`;
+    }
+  } finally {
+    if (carouselRequestController === requestController) {
+      carouselRequestController = null;
+    }
   }
 }
 
@@ -161,4 +175,3 @@ function showCarouselImage(index) {
     }
   });
 }
-

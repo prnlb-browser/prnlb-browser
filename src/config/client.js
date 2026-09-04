@@ -2,6 +2,7 @@ const forumsList = document.getElementById("forums-list");
 const btnAddForum = document.getElementById("btn-add-forum");
 const btnSaveConfig = document.getElementById("btn-save-config");
 const btnClearDb = document.getElementById("btn-clear-db");
+const btnClearTurboImageHostCookies = document.getElementById("btn-clear-turboimagehost-cookies");
 const configStatus = document.getElementById("config-status");
 const cfgAiEnabled = document.getElementById("cfg-ai-enabled");
 const cfgAiProvider = document.getElementById("cfg-ai-provider");
@@ -435,6 +436,25 @@ btnClearDb.addEventListener("click", async () => {
   }
 });
 
+btnClearTurboImageHostCookies.addEventListener("click", async () => {
+  const confirmed = confirm(
+    "Clear TurboImageHost cookies, local storage, and cache? This closes any active verification window and cancels its current image resolution. Your app settings, Pornolab login, saved results, and screenshot cache will not be changed.",
+  );
+  if (!confirmed) return;
+
+  btnClearTurboImageHostCookies.disabled = true;
+  try {
+    const res = await fetch("/api/config/turboimagehost/verification-data", { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to clear TurboImageHost cookies");
+    const data = await res.json();
+    showStatus(configStatus, data.message, false);
+  } catch (err) {
+    showStatus(configStatus, err.message, true);
+  } finally {
+    btnClearTurboImageHostCookies.disabled = false;
+  }
+});
+
 document.getElementById("btn-clean-ai-rates").addEventListener("click", async () => {
   if (!confirm("Are you sure you want to purge all AI rating data from the database? This cannot be undone.")) return;
   try {
@@ -467,4 +487,3 @@ document.getElementById("btn-export-csv").addEventListener("click", async () => 
     showStatus(configStatus, err.message, true);
   }
 });
-

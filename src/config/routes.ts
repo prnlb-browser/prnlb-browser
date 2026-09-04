@@ -5,6 +5,7 @@ import { getTextClient, getVisionClient } from "../ai/providers/index.js";
 import { analyzeTitle } from "../ai/title-analyzer.js";
 import { analyzeScreenshots } from "../ai/screenshot-analyzer.js";
 import { pickRandomSample, suggestRulesFromAnalyses, type AnalyzedItem } from "../ai/rule-suggester.js";
+import { resolverRegistry } from "../core/images/registry.js";
 
 export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, app }) => {
   if (url.pathname === "/api/config" && method === "GET") {
@@ -83,6 +84,14 @@ export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, 
     const topicsCleared = app.getTopicStore().clearAllAiRatings();
     const downloadedCleared = app.getDownloadedStore().clearAllAiRatings();
     json(res, { message: `Cleared AI rating from ${topicsCleared + downloadedCleared} item(s)` });
+    return true;
+  }
+
+  if (url.pathname === "/api/config/turboimagehost/verification-data" && method === "DELETE") {
+    await resolverRegistry.clearTurboImageHostVerificationData();
+    json(res, {
+      message: "TurboImageHost cookies and verification data cleared",
+    });
     return true;
   }
 

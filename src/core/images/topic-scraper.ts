@@ -13,27 +13,63 @@ export type ProgressFn = (p: ImageProgress) => void;
 export async function scrapeTopicImages(
   topicUrl: string,
   onProgress?: ProgressFn,
+  signal?: AbortSignal,
 ): Promise<ScrapedImage[]> {
   const emit = (p: ImageProgress) => { if (onProgress) onProgress(p); };
+  throwIfAborted(signal);
   const browser = await launchChromium({ headless: true });
   try {
     const page = await browser.newPage();
-    await page.setViewportSize({ width: 1280, height: 800 });
+    const onAbort = () => { void page.close().catch(() => {}); };
+    signal?.addEventListener("abort", onAbort, { once: true });
 
-    // Navigate to topic page directly — topic pages are publicly accessible
-    emit({ phase: "scraping", message: "Loading topic page..." });
-    await page.goto(topicUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-    await page.waitForTimeout(2000);
+    try {
+      await page.setViewportSize({ width: 1280, height: 800 });
 
-    // Extract all image URLs from the first post's message area
-    emit({ phase: "scraping", message: "Extracting images from post..." });
-    const images = await extractImagesFromFirstPost(page);
+      // Navigate to topic page directly — topic pages are publicly accessible
+      emit({ phase: "scraping", message: "Loading topic page..." });
+      await page.goto(topicUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await waitForDelay(2000, signal);
+      throwIfAborted(signal);
 
-    emit({ phase: "scraping", message: `Found ${images.length} image(s)` });
-    return images;
+      // Extract all image URLs from the first post's message area
+      emit({ phase: "scraping", message: "Extracting images from post..." });
+      const images = await extractImagesFromFirstPost(page);
+
+      emit({ phase: "scraping", message: `Found ${images.length} image(s)` });
+      return images;
+    } finally {
+      signal?.removeEventListener("abort", onAbort);
+    }
   } finally {
     await browser.close();
   }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    throw error;
+  }
+}
+
+function waitForDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      const error = new Error("Aborted");
+      error.name = "AbortError";
+      reject(error);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) onAbort();
+  });
 }
 
 async function extractImagesFromFirstPost(page: Page): Promise<ScrapedImage[]> {

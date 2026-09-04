@@ -17,7 +17,7 @@ export interface ImageHostResolver {
    * Resolve a thumbnail/post image URL to its full-size version.
    * Returns the full-size image URL or null if resolution fails.
    */
-  resolve(url: string): Promise<string | null>;
+  resolve(url: string, signal?: AbortSignal): Promise<string | null>;
 }
 
 /**
