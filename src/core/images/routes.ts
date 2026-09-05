@@ -15,9 +15,7 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
   ".bmp": "image/bmp",
 };
 
-// Cache key suffix for full-resolution bytes, distinct from the AI screenshot
-// analyzer's `::<maxDimension>` resized-variant keys (src/ai/screenshot-analyzer.ts)
-// so the two features never serve each other's (differently-sized) version.
+// Cache key suffix for full-resolution bytes.
 const ORIGINAL_VARIANT_SUFFIX = "::original";
 
 export const handleImageRoutes: RouteHandler = async ({ req, res, url, method, app }) => {
@@ -56,10 +54,8 @@ export const handleImageRoutes: RouteHandler = async ({ req, res, url, method, a
   }
 
   // GET /api/topic/image?url=<resolved image URL> — proxies the preview
-  // carousel's full-resolution image requests through the same on-disk
-  // cache the AI screenshot analyzer uses (Config.screenshotCache, see
-  // src/core/images/screenshot-cache.ts), so viewing a topic's screenshots
-  // and AI-analyzing it don't each fetch the images separately. `url` is
+  // carousel's full-resolution image requests through the on-disk cache.
+  // `url` is
   // restricted to hosts a resolver recognizes (fastpic/imgbox/turboimagehost) rather than
   // proxying arbitrary URLs, since this endpoint is otherwise a same-origin
   // fetch-any-URL primitive.

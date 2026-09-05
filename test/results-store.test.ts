@@ -114,8 +114,8 @@ describe("TopicStore tags", () => {
   });
 });
 
-describe("TopicStore aiRating", () => {
-  it("defaults to null and can be set/read via setAiRating/getByUrl", () => {
+describe("TopicStore rates", () => {
+  it("defaults to null and can be set/read via setRating/getByUrl", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
     const dbPath = path.join(dir, "data.db");
     try {
@@ -123,14 +123,14 @@ describe("TopicStore aiRating", () => {
       store.insert(baseTopic("u1", "A"));
       assert.equal(store.getByUrl("u1")!.aiRating, null);
 
-      const ok = store.setAiRating("u1", 72);
+      const ok = store.setRating("u1", 72);
       assert.equal(ok, true);
       assert.equal(store.getByUrl("u1")!.aiRating, 72);
 
-      store.setAiRating("u1", null);
+      store.setRating("u1", null);
       assert.equal(store.getByUrl("u1")!.aiRating, null);
 
-      assert.equal(store.setAiRating("missing-url", 10), false);
+      assert.equal(store.setRating("missing-url", 10), false);
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -153,7 +153,7 @@ describe("TopicStore aiRating", () => {
       const rows = store.getAll();
       assert.equal(rows.length, 1, "legacy row must survive schema migration");
       assert.equal(rows[0]!.aiRating, null, "aiRating column defaults to null");
-      assert.equal(store.setAiRating("legacy-url", 40), true);
+      assert.equal(store.setRating("legacy-url", 40), true);
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -193,8 +193,8 @@ describe("TopicStore sort", () => {
       store.insert(baseTopic("u1", "A"));
       store.insert(baseTopic("u2", "B"));
       store.insert(baseTopic("u3", "C")); // stays unrated
-      store.setAiRating("u1", 30);
-      store.setAiRating("u2", 90);
+      store.setRating("u1", 30);
+      store.setRating("u2", 90);
 
       const desc = store.getAll({ by: "aiRating", dir: "desc" });
       assert.deepEqual(desc.map((r) => r.topicUrl), ["u2", "u1", "u3"]);
@@ -214,8 +214,8 @@ describe("TopicStore sort", () => {
       const store = new TopicStore(dbPath);
       store.insert({ ...baseTopic("u1", "Alpha"), sourceForum: "forumA" });
       store.insert({ ...baseTopic("u2", "Alpha 2"), sourceForum: "forumA" });
-      store.setAiRating("u1", 10);
-      store.setAiRating("u2", 80);
+      store.setRating("u1", 10);
+      store.setRating("u2", 80);
 
       assert.deepEqual(
         store.search("Alpha", { by: "aiRating", dir: "desc" }).map((r) => r.topicUrl),

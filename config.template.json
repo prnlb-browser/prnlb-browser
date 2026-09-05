@@ -20,29 +20,7 @@
     "max": 5000
   },
   "dbPath": "data.db",
-  "ai": {
-    "enabled": false,
-    "provider": "ollama",
-    "ollama": {
-      "baseUrl": "http://localhost:11434",
-      "textModel": "qwen2.5:0.5b",
-      "visionModel": "qwen2.5vl:3b"
-    },
-    "openrouter": {
-      "apiKey": "",
-      "textModel": "",
-      "visionModel": ""
-    },
-    "scoring": {
-      "rules": []
-    },
-    "screenshots": {
-      "maxImages": 4,
-      "maxDimension": 896
-    },
-    "autoHide": {
-      "enabled": false,
-      "belowRating": 50
-    }
+  "screenshotCache": {
+    "maxSizeMB": 200
   }
 }

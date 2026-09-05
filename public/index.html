@@ -48,7 +48,7 @@
       <div class="card">
         <h2>Screenshot Cache</h2>
         <div class="form-row">
-          <label>Max cache size (MB) <span class="help-icon" title="Topic screenshots fetched by AI analysis and by the 'Screens' preview carousel are cached on disk (shared by both) so viewing/analyzing the same topic again doesn't re-download them. Oldest cached files are deleted first once this limit is exceeded. Set to 0 to disable caching.">?</span></label>
+          <label>Max cache size (MB) <span class="help-icon" title="Screenshots shown in the preview carousel are cached on disk. Oldest cached files are deleted first once this limit is exceeded. Set to 0 to disable caching.">?</span></label>
           <input type="number" id="cfg-cache-max-size" min="0" max="10000" step="10" value="200" />
         </div>
       </div>
@@ -57,67 +57,10 @@
         <p class="card-description">Clear the dedicated browser profile used for TurboImageHost verification. This does not affect your app settings, Pornolab login, saved results, or screenshot cache.</p>
         <button id="btn-clear-turboimagehost-cookies" class="btn btn-secondary">🧽 Clear TurboImageHost cookies</button>
       </div>
-      <div class="card">
-        <h2>AI Topic Rating</h2>
-        <div class="form-row">
-          <label>Enable AI rating</label>
-          <input type="checkbox" id="cfg-ai-enabled" disabled />
-        </div>
-        <div class="form-row">
-          <label>Provider</label>
-          <select id="cfg-ai-provider">
-            <option value="ollama">Local (Ollama)</option>
-            <option value="openrouter">Cloud (OpenRouter)</option>
-          </select>
-        </div>
-        <div id="ai-ollama-fields">
-          <div class="form-row">
-            <label>Ollama base URL</label>
-            <input type="url" id="cfg-ai-ollama-url" placeholder="http://localhost:11434" />
-          </div>
-          <div class="form-row">
-            <label>Text model</label>
-            <input type="text" id="cfg-ai-ollama-text-model" placeholder="qwen2.5:0.5b" />
-          </div>
-          <div class="form-row">
-            <label>Vision model</label>
-            <input type="text" id="cfg-ai-ollama-vision-model" placeholder="qwen2.5vl:3b" />
-          </div>
-        </div>
-        <div id="ai-openrouter-fields">
-          <div class="form-row">
-            <label>API key</label>
-            <input type="password" id="cfg-ai-openrouter-key" placeholder="sk-or-..." />
-          </div>
-          <div class="form-row">
-            <label>Text model</label>
-            <input type="text" id="cfg-ai-openrouter-text-model" placeholder="openai/gpt-4o-mini" />
-          </div>
-          <div class="form-row">
-            <label>Vision model</label>
-            <input type="text" id="cfg-ai-openrouter-vision-model" placeholder="openai/gpt-4o-mini" />
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Max screenshots per topic</label>
-          <input type="number" id="cfg-ai-max-images" min="1" max="20" value="4" />
-        </div>
-        <div class="form-row">
-          <label>Max screenshot dimension (px)</label>
-          <input type="number" id="cfg-ai-max-dimension" min="64" max="4096" step="32" value="896" />
-        </div>
-      </div>
-      <div class="card" id="ai-scoring-card">
-        <h2>AI Scoring Rules <span class="help-icon" title="Each rule contributes its weight × 50 to a topic's AI rating when it matches (a tag, a performer characteristic, or an actress) — starting from a neutral baseline of 50 and clamped to 0-100. Positive weights raise the rating, negative weights lower it; a rule that doesn't match contributes nothing. Non-matching rules are simply skipped, and multiple matches sum before the clamp.">?</span></h2>
-        <div id="ai-rules-list"></div>
-        <button id="btn-add-rule" class="btn btn-small">+ Add rule</button>
-        <button id="btn-calc-rules-by-downloads" class="btn btn-small">🎲 Calculate by Downloads</button>
-      </div>
       <div class="actions">
         <button id="btn-save-config" class="btn btn-primary">💾 Save Config</button>
         <button id="btn-export-csv" class="btn btn-secondary">📥 Export Topics CSV</button>
         <button id="btn-clear-db" class="btn btn-danger">🗑 Clear Results</button>
-        <button id="btn-clean-ai-rates" class="btn btn-danger">🧹 Clean AI Rates</button>
         <span id="config-status" class="status-msg"></span>
       </div>
     </section>
@@ -133,14 +76,6 @@
           <input type="number" id="cfg-pages" min="1" max="100" value="2" />
         </div>
         <input type="checkbox" id="cfg-headless" checked hidden />
-        <div class="form-row" id="crawl-autohide-row">
-          <label>
-            <input type="checkbox" id="cfg-ai-autohide-enabled" />
-            Auto hide items with rate &lt;
-          </label>
-          <input type="number" id="cfg-ai-autohide-rating" min="0" max="100" value="50" style="width:4.5em" />
-          <span class="help-icon" title="Every item found by this crawl is analyzed with your AI Scoring Rules and hidden automatically if its rating comes back below this threshold. Rating starts at a neutral 50 and moves ±50 per matched rule's weight (clamped 0-100); items are only hidden once a rating was actually computed — if no rules are configured, nothing is hidden.">?</span>
-        </div>
         <div class="actions" style="margin-top:1rem">
           <button id="btn-start" class="btn btn-primary btn-large">▶ Start Crawl</button>
         </div>
@@ -186,7 +121,7 @@
           <label class="filter-toggle">
             <select id="results-sort-by">
               <option value="createdAt">Newest</option>
-              <option value="aiRating">AI rating</option>
+              <option value="aiRating">Rate</option>
               <option value="size">File size</option>
               <option value="starring">Cast</option>
             </select>
@@ -197,7 +132,6 @@
               <option value="asc">ASC</option>
             </select>
           </label>
-          <button id="btn-analyze-results" class="btn btn-small" hidden>🤖 Analyze</button>
           <span id="results-count" class="status-msg"></span>
         </div>
         <div id="results-progress" hidden>
@@ -218,7 +152,6 @@
           <div class="search-row">
             <input type="text" id="search-query" placeholder="Search..." style="flex: 1" />
             <button id="btn-search" class="btn btn-primary">🔍 Search</button>
-            <button id="btn-analyze-search" class="btn btn-small" hidden>🤖 Analyze</button>
           </div>
           <div class="search-row" style="margin-top: 0.5rem">
             <label class="filter-toggle" style="flex: 1">
@@ -270,7 +203,7 @@
                 <option value="fileName">File name</option>
                 <option value="fileSizeBytes">File size</option>
                 <option value="starring">Cast</option>
-                <option value="aiRating">AI rating</option>
+                <option value="aiRating">Rate</option>
               </select>
             </label>
             <label class="filter-toggle">
@@ -279,7 +212,6 @@
                 <option value="asc">ASC</option>
               </select>
             </label>
-            <button id="btn-analyze-downloaded" class="btn btn-small" hidden>🤖 Analyze</button>
             <span id="downloaded-count" class="status-msg"></span>
           </div>
           <div id="downloaded-status" class="status-msg" style="margin-top: 0.5rem"></div>
@@ -448,36 +380,6 @@
       <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;padding:0.75rem 1rem;border-top:1px solid var(--border)">
         <button class="btn btn-small" id="add-tag-cancel" type="button">Cancel</button>
         <button class="btn btn-primary" id="add-tag-save" type="button">🏷️ Add tag</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Config: Calculate AI Scoring Rules by Downloads Modal -->
-  <div id="ai-suggest-rules-modal" class="modal-overlay" hidden>
-    <div class="modal-content" style="max-width: 520px">
-      <div class="modal-header">
-        <span class="modal-title">🎲 Calculate Rules by Downloads</span>
-        <button id="ai-suggest-rules-close" class="btn btn-small modal-close-btn">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-row">
-          <label>Sample size</label>
-          <input type="range" id="ai-suggest-rules-count" min="1" max="1" value="1" style="flex:1" />
-          <span id="ai-suggest-rules-count-label" style="min-width:3ch;text-align:right">1</span>
-        </div>
-        <div class="form-row">
-          <label>Number of rules</label>
-          <input type="number" id="ai-suggest-rules-rule-count" min="1" max="100" value="5" />
-        </div>
-        <div id="ai-suggest-rules-status" class="status-msg"></div>
-        <div id="ai-suggest-rules-progress-container" class="progress-bar-container" hidden>
-          <div id="ai-suggest-rules-progress-bar" class="progress-bar" style="width:0%"></div>
-        </div>
-        <div id="ai-suggest-rules-log" class="log-output" style="max-height:160px;margin-top:0.5rem;display:none"></div>
-      </div>
-      <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;padding:0.75rem 1rem;border-top:1px solid var(--border)">
-        <button class="btn btn-small" id="ai-suggest-rules-cancel" type="button">Cancel</button>
-        <button class="btn btn-primary" id="ai-suggest-rules-run" type="button">▶ Run</button>
       </div>
     </div>
   </div>

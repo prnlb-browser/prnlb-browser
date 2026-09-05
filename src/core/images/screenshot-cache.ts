@@ -2,10 +2,8 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-// On-disk LRU-ish cache for fetched+resized topic screenshots (see
-// src/ai/screenshot-analyzer.ts), so re-analyzing the same topic doesn't
-// re-fetch and re-resize images it already has. Size-bounded rather than
-// count-bounded — see AiConfig.screenshots.cacheMaxSizeMB (src/core/types.ts).
+// On-disk LRU-ish cache for fetched topic screenshots used by the preview
+// carousel. The cache is size-bounded.
 
 const CACHE_DIR_NAME = "screenshot-cache";
 
@@ -37,7 +35,7 @@ export function writeCachedScreenshot(cacheDir: string, cacheKey: string, bytes:
     fs.writeFileSync(path.join(cacheDir, cacheFileName(cacheKey)), bytes);
     evictOldest(cacheDir, maxSizeMB * 1024 * 1024);
   } catch {
-    // Best-effort cache — a write/eviction failure shouldn't break analysis.
+    // Best-effort cache — a write/eviction failure shouldn't break previews.
   }
 }
 

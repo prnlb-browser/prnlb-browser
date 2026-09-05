@@ -1,18 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AiConfig, Config } from "../core/types.js";
-
-export function getDefaultAiConfig(): AiConfig {
-  return {
-    enabled: false,
-    provider: "ollama",
-    ollama: { baseUrl: "http://localhost:11434", textModel: "qwen2.5:0.5b", visionModel: "qwen2.5vl:3b" },
-    openrouter: { apiKey: "", textModel: "", visionModel: "" },
-    scoring: { rules: [] },
-    screenshots: { maxImages: 4, maxDimension: 896 },
-    autoHide: { enabled: false, belowRating: 50 },
-  };
-}
+import type { Config } from "../core/types.js";
 
 export function getDefaultConfig(): Config {
   return {
@@ -24,7 +12,6 @@ export function getDefaultConfig(): Config {
     dbPath: "data.db",
     downloadedFolder: "",
     screenshotCache: { maxSizeMB: 200 },
-    ai: getDefaultAiConfig(),
   };
 }
 
@@ -37,27 +24,13 @@ export class ConfigStore {
 
   load(): Config {
     try {
-      const parsed = JSON.parse(fs.readFileSync(this.path, "utf-8")) as Partial<Config>;
-      // Backfill `ai` and `screenshotCache` for configs saved before those
-      // fields existed, so the rest of the app can treat them as always present.
-      const defaultAi = getDefaultAiConfig();
+      const parsed = JSON.parse(fs.readFileSync(this.path, "utf-8")) as Partial<Config> & { ai?: unknown };
+      // Backfill `screenshotCache` for configs saved before that field existed.
       const defaultConfig = getDefaultConfig();
+      const { ai: _legacyAi, ...configWithoutAi } = parsed;
       return {
-        ...parsed,
+        ...configWithoutAi,
         screenshotCache: { ...defaultConfig.screenshotCache, ...parsed.screenshotCache },
-        ai: {
-          ...defaultAi,
-          ...parsed.ai,
-          // AI feature temporarily disabled app-wide; ignore whatever is on
-          // disk so every route/tab that reads config.ai.enabled agrees,
-          // regardless of what config.json says.
-          enabled: false,
-          ollama: { ...defaultAi.ollama, ...parsed.ai?.ollama },
-          openrouter: { ...defaultAi.openrouter, ...parsed.ai?.openrouter },
-          scoring: { ...defaultAi.scoring, ...parsed.ai?.scoring },
-          screenshots: { ...defaultAi.screenshots, ...parsed.ai?.screenshots },
-          autoHide: { ...defaultAi.autoHide, ...parsed.ai?.autoHide },
-        },
       } as Config;
     } catch {
       return getDefaultConfig();
@@ -65,6 +38,8 @@ export class ConfigStore {
   }
 
   save(config: Config): void {
-    fs.writeFileSync(this.path, JSON.stringify(config, null, 2), "utf-8");
+    const cleanConfig = { ...config } as Config & { ai?: unknown };
+    delete cleanConfig.ai;
+    fs.writeFileSync(this.path, JSON.stringify(cleanConfig, null, 2), "utf-8");
   }
 }

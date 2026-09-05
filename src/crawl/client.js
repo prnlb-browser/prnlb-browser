@@ -16,13 +16,12 @@ function connectSSE() {
     const p = JSON.parse(e.data);
     if (p.phase === "idle") return;
 
-    if ((p.phase === "detail" || p.phase === "analyzing") && p.total && p.current) {
+    if (p.phase === "detail" && p.total && p.current) {
       const pct = Math.round((p.current / p.total) * 100);
       progressBarContainer.hidden = false;
       progressBar.style.width = pct + "%";
       const name = p.message.length > 70 ? p.message.substring(0, 70) + "..." : p.message;
-      const icon = p.phase === "analyzing" ? "🤖" : "🔍";
-      appendLog(`${icon} [${p.current}/${p.total}] ${name}`);
+      appendLog(`🔍 [${p.current}/${p.total}] ${name}`);
     } else if (p.phase === "captchaNeeded" && p.captcha) {
       captchaActiveId = p.captcha.captchaId;
       appendLog(`\n⚠️ ${p.message}`);
@@ -34,8 +33,6 @@ function connectSSE() {
     } else if (p.phase === "error") {
       appendLog(`\n❌ ${p.message}`);
       setRunning(false);
-    } else if (p.phase === "analyzing") {
-      appendLog(`🤖 ${p.message}`);
     } else {
       appendLog(`${p.phase === "login" ? "🔐" : "📄"} ${p.message}`);
     }
@@ -77,4 +74,3 @@ btnStart.addEventListener("click", async () => {
     setRunning(false);
   }
 });
-

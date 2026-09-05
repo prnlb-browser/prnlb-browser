@@ -23,8 +23,8 @@ function baseItem(overrides: Partial<Parameters<DownloadedStore["insert"]>[0]> =
   };
 }
 
-describe("DownloadedStore aiRating", () => {
-  it("defaults to null and can be set/read via setAiRating", () => {
+describe("DownloadedStore rates", () => {
+  it("defaults to null and can be set/read via setRating", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-downloaded-airating-"));
     const dbPath = path.join(dir, "data.db");
     try {
@@ -33,13 +33,13 @@ describe("DownloadedStore aiRating", () => {
       const item = store.getAll()[0]!;
       assert.equal(item.aiRating, null);
 
-      assert.equal(store.setAiRating(item.id, 63), true);
+      assert.equal(store.setRating(item.id, 63), true);
       assert.equal(store.getById(item.id)!.aiRating, 63);
 
-      store.setAiRating(item.id, null);
+      store.setRating(item.id, null);
       assert.equal(store.getById(item.id)!.aiRating, null);
 
-      assert.equal(store.setAiRating(999999, 10), false);
+      assert.equal(store.setRating(999999, 10), false);
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -62,7 +62,7 @@ describe("DownloadedStore aiRating", () => {
       const rows = store.getAll();
       assert.equal(rows.length, 1);
       assert.equal(rows[0]!.aiRating, null);
-      assert.equal(store.setAiRating(rows[0]!.id, 50), true);
+      assert.equal(store.setRating(rows[0]!.id, 50), true);
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -108,8 +108,8 @@ describe("GET /api/downloaded?sortBy=aiRating", () => {
       const a = items.find((i) => i.fileName === "a.mp4")!;
       const b = items.find((i) => i.fileName === "b.mp4")!;
       // c.mp4 stays unrated (null)
-      store.setAiRating(a.id, 30);
-      store.setAiRating(b.id, 90);
+      store.setRating(a.id, 30);
+      store.setRating(b.id, 90);
 
       const app = { getDownloadedStore: () => store, loadConfig: () => getDefaultConfig() };
       const { ctx, captured } = makeCtx("GET", "/api/downloaded?sortBy=aiRating&sortDir=desc", undefined, app);

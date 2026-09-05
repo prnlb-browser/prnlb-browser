@@ -210,11 +210,8 @@ export async function crawl(
       total: topics.length,
     });
     const { results, skipped } = await extractTopicDetails(page, topics, existingUrls, config, onProgress);
-    // No "done" progress event here — the caller (runCrawl, src/crawl/service.ts)
-    // still has to insert results and possibly run auto-hide analysis (§ AI
-    // auto-hide) before the crawl is truly finished, and it emits its own
-    // "done" once that's complete. Emitting one here too would prematurely
-    // tell the client the run is over.
+    // No "done" progress event here — the caller emits it after inserting
+    // the results so the client only sees completion once the crawl is done.
     return { results, skipped };
   } catch (err) {
     onProgress({ phase: "error", message: (err as Error).message });

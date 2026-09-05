@@ -6,54 +6,12 @@ const searchProgress = document.getElementById("search-progress");
 const searchProgressBar = document.getElementById("search-progress-bar");
 const searchProgressLog = document.getElementById("search-progress-log");
 const searchResultsContainer = document.getElementById("search-results-container");
-const btnAnalyzeSearch = document.getElementById("btn-analyze-search");
 // --- Search ---
 
 let searchForumOptions = [];
 let isSearching = false;
-let isAnalyzingSearch = false;
 let lastSearchResults = []; // Store for referencing by index
 let searchDetailGeneration = 0; // Cancel stale detail loading
-let searchAiEnabled = false; // gates the bulk Analyze button, per-item Analyze button, and rating badge — see loadSearchAiEnabled()
-
-// Refreshed on load and after each search so a Config-tab change (AI
-// enabled/disabled) takes effect without a page reload — same pattern as
-// src/results/client.js and src/downloaded/client.js.
-async function loadSearchAiEnabled() {
-  const wasEnabled = searchAiEnabled;
-  try {
-    const res = await fetch("/api/config");
-    if (!res.ok) return;
-    const cfg = await res.json();
-    searchAiEnabled = !!cfg.ai?.enabled;
-  } catch {
-    searchAiEnabled = false;
-  }
-  btnAnalyzeSearch.hidden = !searchAiEnabled;
-  // Cards already rendered (e.g. before switching to the Config tab and
-  // toggling AI) bake the per-item Analyze button + rating badge into their
-  // HTML at render time, so a flag change alone won't hide them. Patch the
-  // existing cards directly rather than calling renderSearchResults() again,
-  // which would also re-trigger loadSearchDetails() and re-fetch every
-  // result's details over the network for no reason.
-  if (searchAiEnabled !== wasEnabled) {
-    searchResultsContainer.querySelectorAll(".result-card").forEach((card) => {
-      card.querySelector('[data-action="analyze"]')?.remove();
-      card.querySelector("[data-ai-rating-badge]")?.remove();
-      if (!searchAiEnabled) return;
-      const idx = parseInt(card.dataset.idx, 10);
-      const t = lastSearchResults[idx];
-      if (!t) return;
-      const addBtn = card.querySelector('[data-action="add"]');
-      if (addBtn) addBtn.insertAdjacentHTML("beforebegin", `<button class="btn btn-small" data-action="analyze">🤖 Analyze</button>`);
-      card.insertAdjacentHTML(
-        "beforeend",
-        `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>`
-      );
-    });
-  }
-}
-loadSearchAiEnabled();
 
 async function loadSearchForumOptions() {
   try {
@@ -131,9 +89,7 @@ async function performSearch(start = 0) {
     showStatus(searchStatus, "Enter a search phrase", true);
     return;
   }
-  if (isSearching || isAnalyzingSearch) return;
-
-  await loadSearchAiEnabled();
+  if (isSearching) return;
   isSearching = true;
   btnSearch.disabled = true;
   btnSearch.textContent = "⏳ Searching...";
@@ -251,11 +207,9 @@ function renderSearchResults(topics) {
           <div class="result-actions">
             ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
             <button class="btn btn-small" data-action="screens" ${t.postImage ? "" : 'style="display:none"'}>🖼 Screens</button>
-            ${searchAiEnabled ? `<button class="btn btn-small" data-action="analyze">🤖 Analyze</button>` : ""}
             <button class="btn btn-small btn-add" data-action="add">➕ Add</button>
           </div>
         </div>
-        ${searchAiEnabled ? `<div class="ai-rating-badge" data-ai-rating-badge title="${t.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(t.aiRating)}%`}">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>` : ""}
       </div>`;
     })
     .join("");
@@ -492,170 +446,10 @@ searchResultsContainer.addEventListener("click", async (e) => {
     return;
   }
 
-  // Handle "Analyze" button — standalone button next to Screens, mirrors
-  // src/results/client.js's analyzeTopic(). Like the bulk Analyze button,
-  // nothing is persisted — the score is only shown on this card.
-  const analyzeBtn = e.target.closest("[data-action='analyze']");
-  if (analyzeBtn) {
-    const card = analyzeBtn.closest(".result-card");
-    if (!card) return;
-    const idx = parseInt(card.dataset.idx, 10);
-    const topic = lastSearchResults[idx];
-    if (!topic) return;
-    await analyzeSearchItem(topic, card, analyzeBtn);
-    return;
-  }
 });
-
-// Note appended to every search rating tooltip — search results aren't in
-// the local topics DB, so unlike Results/Downloaded, nothing here persists.
-const SEARCH_RATING_NOTE = "\n\n(search results aren't saved — this rating is only shown for this search.)";
-
-// Runs the title + screenshot AI analysis for one search result card. Search
-// results aren't in the local topics DB, so nothing is persisted — the
-// rating badge (rendered as a placeholder whenever searchAiEnabled, same as
-// Results/Downloaded — see renderSearchResults) just gets updated in place
-// for this view. Unlike the bulk Analyze button, this always recalculates,
-// even if the card already has a rating from an earlier bulk/single run.
-async function analyzeSearchItem(topic, card, analyzeBtn) {
-  let badge = card.querySelector("[data-ai-rating-badge]");
-  const hadBadge = !!badge;
-  const prevText = badge?.textContent;
-  const prevTitle = badge?.title;
-  if (analyzeBtn) {
-    analyzeBtn.disabled = true;
-    analyzeBtn.textContent = "🤖 Analyzing…";
-  }
-  if (badge) badge.textContent = "…";
-
-  try {
-    const res = await fetch("/api/search/item/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topicUrl: topic.topicUrl, title: topic.title, starring: topic.starring ?? null }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-
-    topic.aiRating = data.aiRating;
-    if (!badge) {
-      badge = document.createElement("div");
-      badge.className = "ai-rating-badge";
-      badge.dataset.aiRatingBadge = "";
-      card.appendChild(badge);
-    }
-    badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-    badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings) + SEARCH_RATING_NOTE;
-  } catch (err) {
-    if (badge) {
-      if (hadBadge) {
-        badge.textContent = prevText;
-        badge.title = prevTitle;
-      } else {
-        badge.remove();
-      }
-    }
-    alert(`Failed to analyze: ${err.message}`);
-  } finally {
-    if (analyzeBtn) {
-      analyzeBtn.disabled = false;
-      analyzeBtn.textContent = "🤖 Analyze";
-    }
-  }
-}
 
 btnSearch.addEventListener("click", () => performSearch());
 searchQuery.addEventListener("keydown", (e) => {
   if (e.key === "Enter") performSearch();
-});
-
-// --- Search: bulk "Analyze" (current result page) ---
-// Analyzes lastSearchResults — the currently displayed search page. Search
-// results aren't in the local topics DB, so nothing is persisted server-side
-// — each card's badge (rendered as a "–" placeholder whenever searchAiEnabled,
-// same as Results/Downloaded) just gets updated in place for this view. Items
-// that already picked up a rating in this view — from an earlier bulk run or
-// a per-item Analyze click — are skipped, same "analyze what's new" behavior
-// as the Results/Downloaded bulk routes; use the per-item button on a card
-// to force a recalculation.
-btnAnalyzeSearch.addEventListener("click", async () => {
-  if (isSearching || isAnalyzingSearch || lastSearchResults.length === 0) return;
-
-  const toAnalyze = lastSearchResults.filter((t) => t.aiRating == null);
-  const skipped = lastSearchResults.length - toAnalyze.length;
-  if (toAnalyze.length === 0) {
-    searchProgress.hidden = false;
-    searchProgressLog.textContent = `All ${lastSearchResults.length} result(s) already rated — nothing to analyze.\n`;
-    return;
-  }
-
-  isAnalyzingSearch = true;
-  btnAnalyzeSearch.disabled = true;
-  btnAnalyzeSearch.textContent = "🤖 Analyzing…";
-  searchProgress.hidden = false;
-  searchProgressLog.textContent = skipped ? `${skipped} already-rated result(s) skipped.\n` : "";
-  searchProgressBar.style.width = "0%";
-
-  try {
-    const res = await fetch("/api/search/analyze-batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items: toAnalyze.map((t) => ({ topicUrl: t.topicUrl, title: t.title, starring: t.starring ?? null })),
-      }),
-    });
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = JSON.parse(line.slice(6));
-        if (data.phase === "start") {
-          searchProgressLog.textContent += `▶ ${data.message}\n`;
-        } else if (data.phase === "item") {
-          const pct = data.total ? Math.round(((data.current - 1) / data.total) * 100) : 0;
-          searchProgressBar.style.width = pct + "%";
-          searchProgressLog.textContent += `🔍 [${data.current}/${data.total}] ${data.message}\n`;
-        } else if (data.phase === "item-done") {
-          const pct = data.total ? Math.round((data.current / data.total) * 100) : 0;
-          searchProgressBar.style.width = pct + "%";
-          const topic = lastSearchResults.find((t) => t.topicUrl === data.key);
-          if (topic) topic.aiRating = data.aiRating;
-          const card = searchResultsContainer.querySelector(`.result-card[data-url="${cssEscape(data.key)}"]`);
-          if (card) {
-            let badge = card.querySelector("[data-ai-rating-badge]");
-            if (!badge) {
-              badge = document.createElement("div");
-              badge.className = "ai-rating-badge";
-              badge.dataset.aiRatingBadge = "";
-              card.appendChild(badge);
-            }
-            badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings) + SEARCH_RATING_NOTE;
-          }
-        } else if (data.phase === "item-error") {
-          searchProgressLog.textContent += `⚠️ ${data.message}\n`;
-        } else if (data.phase === "done") {
-          searchProgressBar.style.width = "100%";
-          searchProgressLog.textContent += `\n✅ ${data.message}\n`;
-        }
-        searchProgressLog.scrollTop = searchProgressLog.scrollHeight;
-      }
-    }
-  } catch (err) {
-    searchProgressLog.textContent += `\n❌ ${err.message}\n`;
-  } finally {
-    isAnalyzingSearch = false;
-    btnAnalyzeSearch.disabled = false;
-    btnAnalyzeSearch.textContent = "🤖 Analyze";
-  }
 });
 

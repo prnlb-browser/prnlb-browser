@@ -16,37 +16,11 @@ const downloadedFilterTagsWrap = document.getElementById("downloaded-filter-tags
 const downloadedClearTagsBtn = document.getElementById("downloaded-clear-tags");
 const downloadedSortBy = document.getElementById("downloaded-sort-by");
 const downloadedSortDir = document.getElementById("downloaded-sort-dir");
-const btnAnalyzeDownloaded = document.getElementById("btn-analyze-downloaded");
 
 let currentFolder = null; // currently selected folder path
 let downloadedItems = []; // current downloaded items
-let visibleDownloadedItems = []; // downloadedItems after client-side actress/tag filtering — the "current view" the bulk Analyze button operates on
 let isScanning = false;
-let isAnalyzingDownloaded = false;
 let allKnownTags = [];     // cached list of all tags across the library (shared with Results tab)
-let downloadedAiEnabled = false; // gates the bulk Analyze button + rating badge — see loadDownloadedAiEnabled()
-
-// Refreshed whenever items are (re)loaded so a Config-tab change (AI
-// enabled/disabled) takes effect on the next Downloaded refresh without a
-// page reload — same pattern as src/results/client.js.
-async function loadDownloadedAiEnabled() {
-  const wasEnabled = downloadedAiEnabled;
-  try {
-    const res = await fetch("/api/config");
-    if (!res.ok) return;
-    const cfg = await res.json();
-    downloadedAiEnabled = !!cfg.ai?.enabled;
-  } catch {
-    downloadedAiEnabled = false;
-  }
-  btnAnalyzeDownloaded.hidden = !downloadedAiEnabled;
-  // Cards already rendered (e.g. before switching to the Config tab and
-  // toggling AI) bake the per-item Analyze button + rating badge into their
-  // HTML at render time, so a flag change alone won't hide them — re-render
-  // to pick up the new value.
-  if (downloadedAiEnabled !== wasEnabled && downloadedItems.length) renderDownloadedItems();
-}
-loadDownloadedAiEnabled();
 
 // Toolbar tags filter — shared control (see src/core/ui/tags.js) so the
 // Downloaded and Results tabs behave identically.
@@ -217,7 +191,6 @@ async function scanFolder(folderPath, mode) {
 
 async function loadDownloadedItems() {
   try {
-    await loadDownloadedAiEnabled();
     const params = new URLSearchParams();
     const q = downloadedSearchInput ? downloadedSearchInput.value.trim() : "";
     if (q) params.set("q", q);
@@ -258,8 +231,6 @@ function renderDownloadedItems() {
   if (actressMode) {
     visible = visible.filter((item) => matchesActressFilter(item, actressMode));
   }
-  visibleDownloadedItems = visible;
-
   const activeTagFilters = downloadedTagFilter.getActiveFilters();
   const tagFiltered = activeTagFilters.length > 0;
   const totalLabel = downloadedItems.length === visible.length
@@ -336,7 +307,6 @@ function renderDownloadedItems() {
             </div>
             <button class="btn btn-small" data-action="play">▶ Play</button>
             <button class="btn btn-small" data-action="screens" ${item.topicUrl ? "" : 'style="display:none"'}>🖼 Screens</button>
-            ${downloadedAiEnabled ? `<button class="btn btn-small" data-action="analyze" ${item.topicUrl ? "" : 'style="display:none"'}>🤖 Analyze</button>` : ""}
             <button class="btn btn-small" data-action="show-in-finder">📂 Show in Finder</button>
           </div>
           <div class="item-tags" data-item-tags>
@@ -344,7 +314,7 @@ function renderDownloadedItems() {
             <button class="btn btn-small btn-tag-add" data-action="add-tag" title="Add or assign tag">+ Add tag</button>
           </div>
         </div>
-        ${downloadedAiEnabled ? `<div class="ai-rating-badge" data-ai-rating-badge title="${item.aiRating == null ? "Not yet analyzed" : `AI score: ${Math.round(item.aiRating)}%`}">${item.aiRating == null ? "–" : `${Math.round(item.aiRating)}%`}</div>` : ""}
+        <div class="rate-badge" title="Rate">${item.aiRating == null ? "–" : `${Math.round(item.aiRating)}%`}</div>
       </div>`;
     })
     .join("");
@@ -468,16 +438,6 @@ downloadedContainer.addEventListener("click", async (e) => {
     return;
   }
 
-  // Analyze — standalone button next to Screens, mirrors src/results/client.js's analyzeTopic().
-  const analyzeBtn = e.target.closest("[data-action='analyze']");
-  if (analyzeBtn) {
-    const card = analyzeBtn.closest(".result-card");
-    const id = parseInt(card.dataset.id, 10);
-    if (!id) return;
-    await analyzeDownloadedItem(id, card);
-    return;
-  }
-
   // Show in Finder
   const finderBtn = e.target.closest("[data-action='show-in-finder']");
   if (finderBtn) {
@@ -533,45 +493,6 @@ downloadedContainer.addEventListener("click", async (e) => {
     return;
   }
 });
-
-// Runs the title + screenshot AI analysis for one item, persists the
-// resulting score via /api/downloaded/item/analyze, and updates the card's
-// rating badge in place. Mirrors src/results/client.js's analyzeTopic().
-async function analyzeDownloadedItem(id, card) {
-  const badge = card.querySelector("[data-ai-rating-badge]");
-  const analyzeBtn = card.querySelector('[data-action="analyze"]');
-  if (analyzeBtn) {
-    analyzeBtn.disabled = true;
-    analyzeBtn.textContent = "🤖 Analyzing…";
-  }
-  if (badge) badge.textContent = "…";
-
-  try {
-    const res = await fetch("/api/downloaded/item/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-
-    const item = downloadedItems.find((i) => i.id === id);
-    if (item) item.aiRating = data.aiRating;
-    card.dataset.aiRating = data.aiRating == null ? "" : String(data.aiRating);
-    if (badge) {
-      badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-      badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings);
-    }
-  } catch (err) {
-    if (badge) badge.textContent = card.dataset.aiRating ? `${Math.round(card.dataset.aiRating)}%` : "–";
-    alert(`Failed to analyze: ${err.message}`);
-  } finally {
-    if (analyzeBtn) {
-      analyzeBtn.disabled = false;
-      analyzeBtn.textContent = "🤖 Analyze";
-    }
-  }
-}
 
 // --- Downloaded: Edit modal ---
 
@@ -1028,84 +949,3 @@ if (downloadedSortDir) {
     if (currentFolder) loadDownloadedItems();
   });
 }
-
-// --- Downloaded: bulk "Analyze" (current filtered view) ---
-// Analyzes visibleDownloadedItems — i.e. exactly what's on screen after the
-// active search/actress/tag filters and sort, same "current page/filters
-// applied" set the toolbar already shows. Items without a matched topicUrl
-// can't be analyzed (screenshot analysis needs one) and are skipped up
-// front rather than sent to the server at all. Items that already have a
-// rating are also skipped, but server-side (see /api/downloaded/analyze-batch)
-// since this button is "analyze what's new" — use the per-item Analyze
-// button on a card to force a recalculation of that one item.
-btnAnalyzeDownloaded.addEventListener("click", async () => {
-  if (isAnalyzingDownloaded || isScanning) return;
-  const eligible = visibleDownloadedItems.filter((item) => !!item.topicUrl);
-  if (eligible.length === 0) {
-    showStatus(downloadedStatus, "No items in the current view have a matched topic URL to analyze.", true);
-    return;
-  }
-
-  isAnalyzingDownloaded = true;
-  btnAnalyzeDownloaded.disabled = true;
-  btnAnalyzeDownloaded.textContent = "🤖 Analyzing…";
-  downloadedProgress.hidden = false;
-  downloadedProgressLog.textContent = "";
-  downloadedProgressBar.style.width = "0%";
-  showStatus(downloadedStatus, `Analyzing ${eligible.length} item(s)...`, false);
-
-  try {
-    const res = await fetch("/api/downloaded/analyze-batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: eligible.map((item) => item.id) }),
-    });
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = JSON.parse(line.slice(6));
-        if (data.phase === "start") {
-          downloadedProgressLog.textContent += `▶ ${data.message}\n`;
-        } else if (data.phase === "item") {
-          const pct = data.total ? Math.round(((data.current - 1) / data.total) * 100) : 0;
-          downloadedProgressBar.style.width = pct + "%";
-          downloadedProgressLog.textContent += `🔍 [${data.current}/${data.total}] ${data.message}\n`;
-        } else if (data.phase === "item-done") {
-          const pct = data.total ? Math.round((data.current / data.total) * 100) : 0;
-          downloadedProgressBar.style.width = pct + "%";
-          const item = downloadedItems.find((i) => String(i.id) === data.key);
-          if (item) item.aiRating = data.aiRating;
-          const card = downloadedContainer.querySelector(`.result-card[data-id="${cssEscape(data.key)}"]`);
-          const badge = card?.querySelector("[data-ai-rating-badge]");
-          if (badge) {
-            badge.textContent = data.aiRating == null ? "–" : `${Math.round(data.aiRating)}%`;
-            badge.title = formatAiRatingTooltip(data.aiRating, data.titleAnalysis, data.screenshotAnalysis, data.timings);
-          }
-        } else if (data.phase === "item-error") {
-          downloadedProgressLog.textContent += `⚠️ ${data.message}\n`;
-        } else if (data.phase === "done") {
-          downloadedProgressBar.style.width = "100%";
-          downloadedProgressLog.textContent += `\n✅ ${data.message}\n`;
-          showStatus(downloadedStatus, data.message, false);
-        }
-        downloadedProgressLog.scrollTop = downloadedProgressLog.scrollHeight;
-      }
-    }
-  } catch (err) {
-    showStatus(downloadedStatus, `Error: ${err.message}`, true);
-  } finally {
-    isAnalyzingDownloaded = false;
-    btnAnalyzeDownloaded.disabled = false;
-    btnAnalyzeDownloaded.textContent = "🤖 Analyze";
-  }
-});

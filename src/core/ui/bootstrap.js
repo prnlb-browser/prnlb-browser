@@ -118,15 +118,13 @@ function switchToTab(tabName) {
   tabBtn.classList.add("active");
   tabContent.classList.add("active");
   if (tabName === "results") { loadForums(); loadAllResultsKnownTags(); loadResults(); }
-  if (tabName === "downloaded") { loadAllKnownTags(); loadDownloadedAiEnabled(); }
+  if (tabName === "downloaded") { loadAllKnownTags(); }
   if (tabName === "actress") { loadActresses(); }
   if (tabName === "search") {
     if (searchForumOptions.length === 0) loadSearchForumOptions();
-    loadSearchAiEnabled();
   }
 }
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => switchToTab(tab.dataset.tab));
 });
-

@@ -162,15 +162,6 @@ function populateActressFilterOptions() {
   });
 }
 
-// Builds the debug tooltip for an AI rating badge, shared by the item-level
-// and bulk Analyze actions on all three tabs (Results/Downloaded/Search).
-// The raw analyzer output is never persisted (docs/ai.spec.md §7) — this
-// JSON tooltip is the only place a user can see why a score came out the
-// way it did.
-function formatAiRatingTooltip(aiRating, titleAnalysis, screenshotAnalysis, timings) {
-  return JSON.stringify({ aiRating, titleAnalysis, screenshotAnalysis, timings }, null, 2);
-}
-
 function showStatus(el, msg, isError) {
   el.textContent = msg;
   el.className = "status-msg " + (isError ? "error" : "success");
@@ -179,4 +170,3 @@ function showStatus(el, msg, isError) {
     el.className = "status-msg";
   }, 3000);
 }
-

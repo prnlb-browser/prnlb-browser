@@ -34,54 +34,23 @@ describe("ConfigStore", () => {
     }
   });
 
-  it("backfills a default `ai` block for configs saved before the AI feature existed", () => {
+  it("drops legacy AI settings while preserving the rest of an old config", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-config-"));
     try {
       const store = new ConfigStore(root);
-      const legacy = getDefaultConfig() as Partial<ReturnType<typeof getDefaultConfig>>;
-      delete legacy.ai;
-      fs.writeFileSync(store.path, JSON.stringify(legacy), "utf-8");
-      assert.deepEqual(store.load().ai, getDefaultConfig().ai);
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  it("backfills missing nested ai.ollama/ai.openrouter fields", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-config-"));
-    try {
-      const store = new ConfigStore(root);
-      const partial = { ...getDefaultConfig(), ai: { enabled: true, provider: "openrouter" } };
-      fs.writeFileSync(store.path, JSON.stringify(partial), "utf-8");
+      fs.writeFileSync(
+        store.path,
+        JSON.stringify({ ...getDefaultConfig(), ai: { enabled: true, provider: "ollama" } }),
+        "utf-8",
+      );
       const loaded = store.load();
-      // AI is force-disabled app-wide regardless of what's on disk (temporary).
-      assert.equal(loaded.ai.enabled, false);
-      assert.equal(loaded.ai.provider, "openrouter");
-      assert.deepEqual(loaded.ai.ollama, getDefaultConfig().ai.ollama);
-      assert.deepEqual(loaded.ai.openrouter, getDefaultConfig().ai.openrouter);
-      assert.deepEqual(loaded.ai.scoring, getDefaultConfig().ai.scoring);
+      assert.equal("ai" in loaded, false);
+      assert.deepEqual(loaded.screenshotCache, { maxSizeMB: 200 });
+      store.save(loaded);
+      assert.equal("ai" in JSON.parse(fs.readFileSync(store.path, "utf-8")), false);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it("preserves configured scoring rules across a load, and backfills scoring when absent", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-config-"));
-    try {
-      const store = new ConfigStore(root);
-      const config = getDefaultConfig();
-      config.ai.scoring.rules = [
-        { type: "tag", value: "anal", weight: 0.5 },
-        { type: "performer-characteristic", value: "blonde", weight: -0.3 },
-      ];
-      store.save(config);
-      assert.deepEqual(store.load().ai.scoring, config.ai.scoring);
-
-      const legacy = { ...getDefaultConfig(), ai: { enabled: true, provider: "ollama", ollama: getDefaultConfig().ai.ollama, openrouter: getDefaultConfig().ai.openrouter } };
-      fs.writeFileSync(store.path, JSON.stringify(legacy), "utf-8");
-      assert.deepEqual(store.load().ai.scoring, { rules: [] });
-    } finally {
-      fs.rmSync(root, { recursive: true, force: true });
-    }
-  });
 });

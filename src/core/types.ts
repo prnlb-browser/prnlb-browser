@@ -1,108 +1,5 @@
 import type { Tag } from "./tags.js";
 
-// AI topic rating (see docs/ai.spec.md). Both provider sub-objects are
-// always present even though only `provider`'s settings are used, so the
-// Config tab doesn't lose the other provider's typed-in values when the
-// user switches between them.
-export type AiProvider = "ollama" | "openrouter";
-
-// Coarse, closed-enum performer characteristics extracted by the screenshot
-// analyzer (src/ai/screenshot-analyzer.ts). Kept here (not in src/ai/) so
-// AiScoreRule/AiConfig can reference them without core depending on a
-// feature folder. "unknown" is an explicit member rather than null so the
-// whole set stays enum-constrained for structured model output.
-export type HairColor = "blonde" | "brunette" | "black" | "red" | "colorful" | "unknown";
-export type HairLength = "bald" | "short" | "shoulder-length" | "long" | "unknown";
-export type BodyType = "slim" | "athletic" | "average" | "curvy" | "bbw" | "muscular" | "unknown";
-export type AgeBracket = "18-22" | "23-27" | "28-35" | "36-45" | "46+" | "unknown";
-export type Race = "asian" | "ebony" | "caucasian" | "latina" | "middle-eastern" | "mixed" | "unknown";
-export type BreastSize = "small" | "medium" | "large" | "extra-large" | "unknown";
-
-// Other than "unknown" (deliberately shared, and excluded from the scoring
-// rule editor for that reason — see AiScoreRule), the six enums above share
-// no literal values, so a single value (e.g. "blonde") unambiguously
-// identifies which characteristic it belongs to — AiScoreRule doesn't need
-// a separate field selector. Renamed HairLength's "medium" to
-// "shoulder-length" and Race's "black" to "ebony" specifically to avoid
-// colliding with BreastSize's "medium" and HairColor's "black".
-export type PerformerCharacteristicValue = HairColor | HairLength | BodyType | AgeBracket | Race | BreastSize;
-
-// The fixed scene-composition vocabulary deterministically derived by the
-// screenshot analyzer (src/ai/screenshot-analyzer.ts postProcess(), see
-// docs/ai.spec.md §6.6) — the only closed set of tag *values* in the app,
-// as opposed to the free-form/user-grown tag vocabulary (src/core/tags.ts).
-// Kept here, not there, for the same reason as PerformerCharacteristicValue
-// above. postProcess() pushes these as a typed array, so this list and its
-// actual usage can't drift out of sync without a compile error.
-export type SceneCompositionTag = "Solo" | "Duo" | "FF" | "MM" | "MF" | "Threesome" | "FFM" | "MMF" | "FFF" | "MMM" | "Gangbang";
-export const SCENE_COMPOSITION_TAGS: readonly SceneCompositionTag[] = [
-  "Solo",
-  "Duo",
-  "FF",
-  "MM",
-  "MF",
-  "Threesome",
-  "FFM",
-  "MMF",
-  "FFF",
-  "MMM",
-  "Gangbang",
-];
-
-// A user-configured rule contributing to a topic's AI rating (see
-// docs/ai.spec.md §8). "tag" rules do a case-insensitive substring match
-// against combined title+screenshot tags; "predefined-tag" rules do a
-// case-insensitive exact match against the same pool, restricted to the
-// fixed SceneCompositionTag vocabulary above (so the rule editor can offer
-// a dropdown instead of free text); "performer-characteristic" rules do an
-// exact match against any performer's characteristic fields; "actress"
-// rules match against the Actress catalogue (src/actresses/) via the
-// item's title+Cast text — see src/core/actress-match.ts. `value` is
-// either the literal "favorite" (any favorited actress appears), the
-// literal "saved" (any catalogued actress appears, favorite or not), or a
-// specific actress's exact name (case-insensitive) — the rule editor's
-// dropdown only ever offers those three shapes, but the type itself is
-// just `string` since the catalogue is user data, not a fixed enum.
-export type AiScoreRule =
-  | { type: "tag"; value: string; weight: number }
-  | { type: "predefined-tag"; value: SceneCompositionTag; weight: number }
-  | { type: "performer-characteristic"; value: PerformerCharacteristicValue; weight: number }
-  | { type: "actress"; value: string; weight: number };
-
-export interface AiConfig {
-  enabled: boolean;
-  provider: AiProvider;
-  ollama: {
-    baseUrl: string;
-    textModel: string;
-    visionModel: string;
-  };
-  openrouter: {
-    apiKey: string;
-    textModel: string;
-    visionModel: string;
-  };
-  scoring: {
-    rules: AiScoreRule[];
-  };
-  // Bounds the screenshot analyzer's vision call (src/ai/screenshot-analyzer.ts)
-  // — how many post images to send per topic, and the max long-edge pixel
-  // size each is resized to before sending. Lower values trade scene
-  // coverage/detail for faster inference.
-  screenshots: {
-    maxImages: number;
-    maxDimension: number;
-  };
-  // Crawl-tab option (docs/ai.spec.md): when enabled, every newly crawled
-  // topic is analyzed right after a crawl finishes, and any topic whose
-  // aiRating comes back below `belowRating` is hidden automatically —
-  // same effect as the manual "Hide" action, just applied during the crawl.
-  autoHide: {
-    enabled: boolean;
-    belowRating: number;
-  };
-}
-
 export interface Config {
   credentials: { username: string; password: string };
   forums: { url: string; label: string }[];
@@ -111,15 +8,10 @@ export interface Config {
   delay: { min: number; max: number };
   dbPath: string;
   downloadedFolder?: string;
-  // Shared on-disk cache (src/core/images/screenshot-cache.ts) for topic
-  // screenshots — used by both the AI screenshot analyzer
-  // (src/ai/screenshot-analyzer.ts) and the "Screens" preview carousel's
-  // image proxy (src/core/images/routes.ts), so a topic viewed once doesn't
-  // get re-fetched by the other feature. When a write would push the cache
-  // over this limit, the oldest (by last-read time) files are deleted
-  // first. 0 disables the cache entirely.
+  // Shared on-disk cache for topic screenshots shown in the "Screens"
+  // preview carousel. When a write would push the cache over this limit,
+  // the oldest (by last-read time) files are deleted first. 0 disables it.
   screenshotCache: { maxSizeMB: number };
-  ai: AiConfig;
 }
 
 export interface TopicData {
@@ -136,9 +28,8 @@ export interface TopicData {
   // Free-form tags assigned by the user. Shares the same {name, color} model
   // and the same tag vocabulary as DownloadedItem.tags — see src/core/tags.ts.
   tags?: DownloadedTag[] | null;
-  // 0-100 AI rating from the configured scoring rules (see docs/ai.spec.md
-  // §7/§8), or null if never analyzed. Only the score is persisted — the
-  // raw title/screenshot analysis that produced it is not stored.
+  // Existing 0-100 item rate. The calculation is intentionally outside this
+  // application; only the value and its sorting are retained here.
   aiRating?: number | null;
 }
 
@@ -159,8 +50,7 @@ export interface CrawlProgress {
     | "scan"
     | "itemDone"
     | "resolving"
-    | "scraping"
-    | "analyzing";
+    | "scraping";
   message: string;
   current?: number;
   total?: number;
@@ -209,8 +99,7 @@ export interface DownloadedItem {
   fileSizeBytes?: number | null;
   fileMtimeMs?: number | null;
   fileBirthtimeMs?: number | null;
-  // 0-100 AI rating, same semantics as TopicData.aiRating — null if never
-  // analyzed. Only settable via items that have a topicUrl (screenshot
-  // analysis needs one to scrape from).
+  // Existing 0-100 item rate. The calculation is intentionally outside this
+  // application; only the value and its sorting are retained here.
   aiRating?: number | null;
 }

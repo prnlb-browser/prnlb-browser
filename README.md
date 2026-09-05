@@ -34,7 +34,6 @@
 - **🎭 Actress Catalogue** — Maintain a searchable roster of actresses (with aliases and photos) used to cross‑reference "Cast" across every tab
 - **❤️ Favorites** — Save and organize your favorite topics and actresses for quick access
 - **📸 Screenshot Tool** — Capture and review topic previews without leaving the app
-- **🤖 AI Topic Rating** — Auto-rate topics with a local (Ollama) or cloud (OpenRouter) AI model against your own weighted tag/actress/characteristic rules — opt-in, off by default
 - **🧠 Deduplication** — Safe to re‑run: already‑scraped topics and previously scanned files are skipped automatically
 - **🖥️ Desktop App** — Native macOS / Windows / Linux builds available (powered by Electron)
 

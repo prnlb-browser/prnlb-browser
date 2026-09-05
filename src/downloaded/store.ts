@@ -30,7 +30,7 @@ export class DownloadedStore {
     this.db.pragma("journal_mode = WAL");
     this.db.exec(CREATE_DOWNLOADED_TABLE);
 
-    // Idempotent column addition for older schemas (pre-AI-rating).
+    // Preserve the existing rate column in databases created by older versions.
     try {
       this.db.exec("ALTER TABLE downloaded ADD COLUMN aiRating REAL");
     } catch {
@@ -120,12 +120,8 @@ export class DownloadedStore {
       .run(JSON.stringify(normalizeTags(tags)), id).changes > 0;
   }
 
-  setAiRating(id: number, rating: number | null): boolean {
+  setRating(id: number, rating: number | null): boolean {
     return this.db.prepare("UPDATE downloaded SET aiRating = ? WHERE id = ?").run(rating, id).changes > 0;
-  }
-
-  clearAllAiRatings(): number {
-    return this.db.prepare("UPDATE downloaded SET aiRating = NULL WHERE aiRating IS NOT NULL").run().changes;
   }
 
   getAllTags(): DownloadedTag[] {

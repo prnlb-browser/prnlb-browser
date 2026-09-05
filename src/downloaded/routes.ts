@@ -9,12 +9,6 @@ import { fetchTopicTitle, refreshDownloadedItem, scanDownloadedFolder } from "./
 import type { DownloadedItem } from "../core/types.js";
 import { getKnownTags } from "../core/known-tags.js";
 import { validateFolderPath } from "../core/fs-paths.js";
-import { analyzeBatch, type BatchAnalyzeItem } from "../ai/batch-analyzer.js";
-import { getTextClient, getVisionClient } from "../ai/providers/index.js";
-import { analyzeTitle } from "../ai/title-analyzer.js";
-import { analyzeScreenshots, type ScreenshotTimings } from "../ai/screenshot-analyzer.js";
-import { computeScore } from "../ai/scoring.js";
-import { matchActresses } from "../core/actress-match.js";
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -124,115 +118,6 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
     store.updateTags(id, body.tags ?? []);
     const updated = store.getById(id);
     json(res, { tags: updated?.tags ?? [] });
-    return true;
-  }
-
-  // POST /api/downloaded/item/analyze — analyze a single item, mirroring
-  // /api/results/item/analyze (see docs/ai.spec.md §10.1). Requires a
-  // matched topicUrl since screenshot analysis needs one, same guard the
-  // batch route applies when filtering items.
-  if (url.pathname === "/api/downloaded/item/analyze" && method === "POST") {
-    const { id } = await readJson<{ id: number }>(req);
-    if (!id) {
-      json(res, { error: "id is required" }, 400);
-      return true;
-    }
-    const config = app.loadConfig();
-    if (!config.ai.enabled) {
-      json(res, { error: "AI rating is not enabled" }, 400);
-      return true;
-    }
-    const item = store.getById(id);
-    if (!item) {
-      json(res, { error: "Item not found" }, 404);
-      return true;
-    }
-    if (!item.topicUrl) {
-      json(res, { error: "Item has no matched topic URL — screenshot analysis needs one" }, 400);
-      return true;
-    }
-    try {
-      const totalStart = Date.now();
-      const screenshotTimings: ScreenshotTimings = { getImagesMs: 0, processScreensMs: 0 };
-      const textStart = Date.now();
-      const textPromise = analyzeTitle(item.title ?? item.fileName, getTextClient(config), item.starring).then((result) => {
-        const processTextMs = Date.now() - textStart;
-        return { result, processTextMs };
-      });
-      const [{ result: titleAnalysis, processTextMs }, screenshotAnalysis] = await Promise.all([
-        textPromise,
-        analyzeScreenshots(item.topicUrl, getVisionClient(config), screenshotTimings, config.ai.screenshots, {
-          userDataDir: app.userDataDir,
-          maxSizeMB: config.screenshotCache.maxSizeMB,
-        }),
-      ]);
-      const actressContext = matchActresses(item.title ?? item.fileName, item.starring, app.getActressStore().getAll());
-      const ratesStart = Date.now();
-      const aiRating = computeScore(config.ai.scoring.rules, titleAnalysis, screenshotAnalysis, actressContext);
-      const calculateRatesMs = Date.now() - ratesStart;
-      store.setAiRating(id, aiRating);
-      const timings = {
-        getImagesMs: screenshotTimings.getImagesMs,
-        processTextMs,
-        processScreensMs: screenshotTimings.processScreensMs,
-        calculateRatesMs,
-        totalMs: Date.now() - totalStart,
-      };
-      json(res, { aiRating, titleAnalysis, screenshotAnalysis, timings });
-    } catch (error) {
-      json(res, { error: error instanceof Error ? error.message : "Analysis failed" }, 500);
-    }
-    return true;
-  }
-
-  // POST /api/downloaded/analyze-batch — bulk-analyze the given items (the
-  // client's current filtered/sorted view), persisting each item's score as
-  // it completes. Items without a matched topicUrl are skipped (screenshot
-  // analysis needs one) — the client is expected to have filtered those out
-  // already, but this is re-checked defensively. Items that already have an
-  // aiRating are also skipped — same "analyze what's new" reasoning as the
-  // Results bulk route; use the per-item Analyze button to force a redo.
-  if (url.pathname === "/api/downloaded/analyze-batch" && method === "POST") {
-    const { ids } = await readJson<{ ids: number[] }>(req);
-    const config = app.loadConfig();
-    if (!config.ai.enabled) {
-      json(res, { error: "AI rating is not enabled" }, 400);
-      return true;
-    }
-    if (!Array.isArray(ids) || ids.length === 0) {
-      json(res, { error: "ids is required" }, 400);
-      return true;
-    }
-
-    const emit = startSse(res);
-    const batchItems: BatchAnalyzeItem[] = [];
-    let skipped = 0;
-    for (const id of ids) {
-      const item = store.getById(id);
-      if (!item?.topicUrl) continue;
-      if (item.aiRating != null) {
-        skipped++;
-        continue;
-      }
-      batchItems.push({ key: String(id), title: item.title ?? item.fileName, topicUrl: item.topicUrl, starring: item.starring });
-    }
-
-    const actresses = app.getActressStore().getAll();
-    let analyzed = 0;
-    await analyzeBatch(batchItems, config, actresses, (event) => {
-      if (event.phase === "item-done") {
-        store.setAiRating(Number(event.key), event.aiRating);
-        analyzed++;
-      }
-      emit(event);
-    }, app.userDataDir);
-    emit({
-      phase: "done",
-      message: `Analyzed ${analyzed}/${ids.length} item(s)${skipped ? ` (${skipped} already rated, skipped)` : ""}`,
-      analyzed,
-      total: ids.length,
-    });
-    res.end();
     return true;
   }
 

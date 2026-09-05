@@ -94,8 +94,7 @@ h1 {
   margin-bottom: 0.9rem;
 }
 
-/* Small "(?)" affordance for a native title="" tooltip explaining a
-   calculation — e.g. the AI rating formula behind a threshold/rule editor. */
+/* Small "(?)" affordance for a native title="" tooltip. */
 .help-icon {
   display: inline-flex;
   align-items: center;
@@ -158,12 +157,6 @@ input[type="url"] {
 }
 
 input:focus { border-color: var(--accent); }
-
-/* Dimmed field group, e.g. AI provider settings while the feature is off */
-.field-group--disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
 
 /* Toggle switch */
 .toggle {
@@ -472,8 +465,8 @@ input:focus { border-color: var(--accent); }
   cursor: not-allowed;
 }
 
-/* --- AI rating badge --- */
-.ai-rating-badge {
+/* --- Item rate badge --- */
+.rate-badge {
   position: absolute;
   bottom: 0.6rem;
   right: 0.75rem;

@@ -86,7 +86,7 @@ export class TopicStore {
       // Column already exists — safe to ignore.
     }
 
-    // Idempotent column addition for older schemas (pre-AI-rating).
+    // Preserve the existing rate column in databases created by older versions.
     try {
       this.db.exec("ALTER TABLE topics ADD COLUMN aiRating REAL");
     } catch {
@@ -148,12 +148,8 @@ export class TopicStore {
       .run(JSON.stringify(normalizeTags(tags)), topicUrl).changes > 0;
   }
 
-  setAiRating(topicUrl: string, rating: number | null): boolean {
+  setRating(topicUrl: string, rating: number | null): boolean {
     return this.db.prepare("UPDATE topics SET aiRating = ? WHERE topicUrl = ?").run(rating, topicUrl).changes > 0;
-  }
-
-  clearAllAiRatings(): number {
-    return this.db.prepare("UPDATE topics SET aiRating = NULL WHERE aiRating IS NOT NULL").run().changes;
   }
 
   getAllTags(): ReturnType<typeof mergeTagLists> {
