@@ -305,6 +305,10 @@
           <label>Size</label>
           <input type="text" id="edit-size" disabled title="File size is set automatically from disk — click Refresh to update it" />
         </div>
+        <div class="form-row">
+          <label for="edit-comments">Comments / AI context</label>
+          <textarea id="edit-comments" rows="4" placeholder="Notes or context for this item..."></textarea>
+        </div>
         <div id="edit-progress-log" class="log-output" style="max-height:120px;margin-top:0.5rem;display:none"></div>
       </div>
       <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;padding:0.75rem 1rem;border-top:1px solid var(--border)">
@@ -350,6 +354,10 @@
         <div class="form-row">
           <label>Size</label>
           <input type="text" id="results-edit-size" />
+        </div>
+        <div class="form-row">
+          <label for="results-edit-comments">Comments / AI context</label>
+          <textarea id="results-edit-comments" rows="4" placeholder="Notes or context for this item..."></textarea>
         </div>
         <span id="results-edit-status" class="status-msg"></span>
       </div>

@@ -274,6 +274,7 @@ function renderDownloadedItems() {
         `data-size="${esc(item.size || "")}"`,
         `data-post-image="${esc(item.postImage || "")}"`,
         `data-cached-image="${esc(item.cachedImage || "")}"`,
+        `data-comments="${esc(item.comments || "")}"`,
         `data-tags="${tagsData}"`,
       ].join(" ");
 
@@ -295,6 +296,7 @@ function renderDownloadedItems() {
               ${item.size ? `<span><span class="label">Size:</span> <span class="value">${esc(item.size)}</span></span>` : ""}
             </div>
           </div>
+          ${item.comments ? `<div class="item-comments"><span class="label">Comment:</span> ${esc(item.comments)}</div>` : ""}
           <div class="result-actions">
             <div class="result-actions-menu-wrapper">
               <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
@@ -504,6 +506,7 @@ const editCastInput = document.getElementById("edit-starring");
 const editDateInput = document.getElementById("edit-production-date");
 const editDurationInput = document.getElementById("edit-duration");
 const editSizeInput = document.getElementById("edit-size");
+const editCommentsInput = document.getElementById("edit-comments");
 const editPostImageUrlInput = document.getElementById("edit-post-image-url");
 const editPostImageImg = document.getElementById("edit-post-image-img");
 const editPostImagePlaceholder = document.getElementById("edit-post-image-placeholder");
@@ -534,6 +537,7 @@ function openEditModal(card) {
     size: card.dataset.size || "",
     cachedImage: card.dataset.cachedImage || "",
     topicUrl: card.dataset.url || "",
+    comments: card.dataset.comments || "",
   };
   editCachedImageStash = editItem.cachedImage;
 
@@ -544,6 +548,7 @@ function openEditModal(card) {
   editDateInput.value = editItem.productionDate;
   editDurationInput.value = editItem.duration;
   editSizeInput.value = editItem.size;
+  editCommentsInput.value = editItem.comments;
   editPostImageUrlInput.value = "";
 
   const src = buildEditPostImageSrc(editItem.cachedImage);
@@ -665,6 +670,7 @@ editSaveBtn.addEventListener("click", async () => {
     ["starring", editCastInput],
     ["productionDate", editDateInput],
     ["duration", editDurationInput],
+    ["comments", editCommentsInput],
   ];
   for (const [key, input] of textInputs) {
     const v = input.value.trim();

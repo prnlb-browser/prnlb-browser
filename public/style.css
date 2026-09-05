@@ -144,7 +144,8 @@ h1 {
 input[type="text"],
 input[type="password"],
 input[type="number"],
-input[type="url"] {
+input[type="url"],
+textarea {
   flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -156,7 +157,8 @@ input[type="url"] {
   transition: border-color 0.2s;
 }
 
-input:focus { border-color: var(--accent); }
+input:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 5rem; }
 
 /* Toggle switch */
 .toggle {
@@ -394,6 +396,15 @@ input:focus { border-color: var(--accent); }
   min-width: 0;
   max-width: 100%;
 }
+
+.item-comments {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.item-comments .label { color: var(--text-muted); }
 
 .result-actions { margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; min-width: 0; max-width: 100%; }
 

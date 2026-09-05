@@ -283,6 +283,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       starring?: string | null;
       productionDate?: string | null;
       duration?: string | null;
+      comments?: string | null;
     }>(req);
     const { id } = body;
     if (!id) {
@@ -302,6 +303,7 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
       if ("starring" in body) fields.starring = body.starring?.trim() ? body.starring.trim() : null;
       if ("productionDate" in body) fields.productionDate = body.productionDate?.trim() ? body.productionDate.trim() : null;
       if ("duration" in body) fields.duration = body.duration?.trim() ? body.duration.trim() : null;
+      if ("comments" in body) fields.comments = body.comments?.trim() ? body.comments.trim() : null;
       // size is intentionally not user-editable — it's derived from disk via Refresh.
 
       if ("topicUrl" in body) {

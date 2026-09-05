@@ -145,7 +145,7 @@ async function loadResults() {
           const tagsData = encodeTagsDataAttr(t.tags || []);
           const tagsHtml = renderTagChips(t.tags || []);
           return `
-      <div class="result-card${isHidden ? " result-card--hidden" : ""}${extraClass}" data-url="${esc(t.topicUrl)}" data-title="${esc(t.title)}" data-starring="${esc(t.starring || "")}" data-production-date="${esc(t.productionDate || "")}" data-duration="${esc(t.duration || "")}" data-size="${esc(t.size || "")}" data-post-image="${esc(t.postImage || "")}" data-tags="${tagsData}">
+      <div class="result-card${isHidden ? " result-card--hidden" : ""}${extraClass}" data-url="${esc(t.topicUrl)}" data-title="${esc(t.title)}" data-starring="${esc(t.starring || "")}" data-production-date="${esc(t.productionDate || "")}" data-duration="${esc(t.duration || "")}" data-size="${esc(t.size || "")}" data-post-image="${esc(t.postImage || "")}" data-comments="${esc(t.comments || "")}" data-tags="${tagsData}">
         ${t.postImage ? `<img class="result-thumb" src="${esc(t.postImage)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ""}
         <div class="result-info">
           <div class="result-title"><a href="${esc(t.topicUrl)}" target="_blank">${isFav ? "★ " : ""}${esc(t.title)}</a></div>
@@ -158,6 +158,7 @@ async function loadResults() {
               ${t.size ? `<span><span class="label">Size:</span> <span class="value">${esc(t.size)}</span></span>` : ""}
             </div>
           </div>
+          ${t.comments ? `<div class="item-comments"><span class="label">Comment:</span> ${esc(t.comments)}</div>` : ""}
           <div class="result-actions">
             <div class="result-actions-menu-wrapper">
               <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
@@ -411,6 +412,7 @@ const resultsEditStarringInput = document.getElementById("results-edit-starring"
 const resultsEditDateInput = document.getElementById("results-edit-production-date");
 const resultsEditDurationInput = document.getElementById("results-edit-duration");
 const resultsEditSizeInput = document.getElementById("results-edit-size");
+const resultsEditCommentsInput = document.getElementById("results-edit-comments");
 const resultsEditStatus = document.getElementById("results-edit-status");
 const resultsEditSaveBtn = document.getElementById("results-edit-save");
 const resultsEditCancelBtn = document.getElementById("results-edit-cancel");
@@ -426,6 +428,7 @@ function openResultsEditModal(card) {
   resultsEditDateInput.value = card.dataset["productionDate"] || "";
   resultsEditDurationInput.value = card.dataset.duration || "";
   resultsEditSizeInput.value = card.dataset.size || "";
+  resultsEditCommentsInput.value = card.dataset.comments || "";
   resultsEditStatus.textContent = "";
   resultsEditStatus.className = "status-msg";
   resultsEditSaveBtn.disabled = false;
@@ -455,6 +458,7 @@ resultsEditSaveBtn.addEventListener("click", async () => {
     ["duration", resultsEditDurationInput],
     ["size", resultsEditSizeInput],
     ["postImage", resultsEditPostImageInput],
+    ["comments", resultsEditCommentsInput],
   ];
   for (const [key, input] of textInputs) {
     fields[key] = input.value.trim() || null;
@@ -496,6 +500,7 @@ function applyResultsEditToCard(topicUrl, item) {
   card.dataset.duration = item.duration || "";
   card.dataset.size = item.size || "";
   card.dataset.postImage = item.postImage || "";
+  card.dataset.comments = item.comments || "";
 
   const titleLink = card.querySelector(".result-title a");
   if (titleLink) {
@@ -509,6 +514,18 @@ function applyResultsEditToCard(topicUrl, item) {
     updateMetaField(metaDiv, "Date:", item.productionDate);
     updateMetaField(metaDiv, "Duration:", item.duration);
     updateMetaField(metaDiv, "Size:", item.size);
+  }
+
+  let comments = card.querySelector(".item-comments");
+  if (item.comments) {
+    if (!comments) {
+      comments = document.createElement("div");
+      comments.className = "item-comments";
+      card.querySelector(".result-info")?.insertBefore(comments, card.querySelector(".result-actions"));
+    }
+    comments.innerHTML = `<span class="label">Comment:</span> ${esc(item.comments)}`;
+  } else if (comments) {
+    comments.remove();
   }
 
   let thumb = card.querySelector(".result-thumb");

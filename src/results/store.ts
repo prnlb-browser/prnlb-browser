@@ -17,6 +17,7 @@ const CREATE_TABLE = `
     hidden    INTEGER NOT NULL DEFAULT 0,
     tags      TEXT NOT NULL DEFAULT '[]',
     aiRating  REAL,
+    comments  TEXT,
     createdAt TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `;
@@ -92,15 +93,21 @@ export class TopicStore {
     } catch {
       // Column already exists — safe to ignore.
     }
+
+    try {
+      this.db.exec("ALTER TABLE topics ADD COLUMN comments TEXT");
+    } catch {
+      // Column already exists — safe to ignore.
+    }
   }
 
   insert(topic: TopicData): boolean {
     const tagsJson = JSON.stringify(normalizeTags(topic.tags));
     const stmt = this.db.prepare(`
-      INSERT OR IGNORE INTO topics (topicUrl, title, postImage, starring, productionDate, duration, size, torrentUrl, sourceForum, hidden, tags, aiRating)
-      VALUES (@topicUrl, @title, @postImage, @starring, @productionDate, @duration, @size, @torrentUrl, @sourceForum, @hidden, @tags, @aiRating)
+      INSERT OR IGNORE INTO topics (topicUrl, title, postImage, starring, productionDate, duration, size, torrentUrl, sourceForum, hidden, tags, aiRating, comments)
+      VALUES (@topicUrl, @title, @postImage, @starring, @productionDate, @duration, @size, @torrentUrl, @sourceForum, @hidden, @tags, @aiRating, @comments)
     `);
-    return stmt.run({ ...topic, tags: tagsJson, aiRating: topic.aiRating ?? null }).changes > 0;
+    return stmt.run({ ...topic, tags: tagsJson, aiRating: topic.aiRating ?? null, comments: topic.comments ?? null }).changes > 0;
   }
 
   exists(topicUrl: string): boolean {
@@ -134,7 +141,7 @@ export class TopicStore {
     ).run(details.postImage, details.starring, details.productionDate, details.duration, topicUrl).changes > 0;
   }
 
-  updateItem(topicUrl: string, fields: Partial<Pick<TopicData, "title" | "postImage" | "starring" | "productionDate" | "duration" | "size">>): boolean {
+  updateItem(topicUrl: string, fields: Partial<Pick<TopicData, "title" | "postImage" | "starring" | "productionDate" | "duration" | "size" | "comments">>): boolean {
     const keys = Object.keys(fields);
     if (keys.length === 0) return false;
     const sets = keys.map((key) => `${key} = ?`).join(", ");

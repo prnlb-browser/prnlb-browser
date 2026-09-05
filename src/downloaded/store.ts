@@ -18,6 +18,7 @@ const CREATE_DOWNLOADED_TABLE = `
     size            TEXT,
     tags            TEXT NOT NULL DEFAULT '[]',
     aiRating        REAL,
+    comments        TEXT,
     createdAt       TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `;
@@ -33,6 +34,12 @@ export class DownloadedStore {
     // Preserve the existing rate column in databases created by older versions.
     try {
       this.db.exec("ALTER TABLE downloaded ADD COLUMN aiRating REAL");
+    } catch {
+      // Column already exists — safe to ignore.
+    }
+
+    try {
+      this.db.exec("ALTER TABLE downloaded ADD COLUMN comments TEXT");
     } catch {
       // Column already exists — safe to ignore.
     }
@@ -53,11 +60,11 @@ export class DownloadedStore {
     const tagsJson = JSON.stringify(normalizeTags(item.tags));
     const stmt = this.db.prepare(`
       INSERT OR IGNORE INTO downloaded
-        (fileName, filePath, title, topicUrl, postImage, cachedImage, starring, productionDate, duration, size, tags)
+        (fileName, filePath, title, topicUrl, postImage, cachedImage, starring, productionDate, duration, size, tags, comments)
       VALUES
-        (@fileName, @filePath, @title, @topicUrl, @postImage, @cachedImage, @starring, @productionDate, @duration, @size, @tags)
+        (@fileName, @filePath, @title, @topicUrl, @postImage, @cachedImage, @starring, @productionDate, @duration, @size, @tags, @comments)
     `);
-    return stmt.run({ ...item, tags: tagsJson }).changes > 0;
+    return stmt.run({ ...item, tags: tagsJson, comments: item.comments ?? null }).changes > 0;
   }
 
   exists(filePath: string): boolean {
@@ -94,12 +101,13 @@ export class DownloadedStore {
       productionDate?: string | null;
       duration?: string | null;
       size?: string | null;
+      comments?: string | null;
       tags?: unknown;
     },
   ): boolean {
     const sets: string[] = [];
     const values: unknown[] = [];
-    for (const key of ["title", "topicUrl", "postImage", "cachedImage", "starring", "productionDate", "duration", "size"] as const) {
+    for (const key of ["title", "topicUrl", "postImage", "cachedImage", "starring", "productionDate", "duration", "size", "comments"] as const) {
       if (key in fields) {
         sets.push(`${key} = ?`);
         values.push((fields as Record<string, unknown>)[key] ?? null);

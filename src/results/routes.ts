@@ -88,6 +88,7 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       productionDate?: string | null;
       duration?: string | null;
       size?: string | null;
+      comments?: string | null;
     }>(req);
     const { topicUrl } = body;
     if (!topicUrl) {
@@ -100,7 +101,7 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
       return true;
     }
 
-    const fields: Partial<Pick<TopicData, "title" | "postImage" | "starring" | "productionDate" | "duration" | "size">> = {};
+    const fields: Partial<Pick<TopicData, "title" | "postImage" | "starring" | "productionDate" | "duration" | "size" | "comments">> = {};
     // title is NOT NULL in the schema — an empty value keeps the existing title.
     if ("title" in body) fields.title = body.title?.trim() ? body.title.trim() : topic.title;
     if ("postImage" in body) fields.postImage = body.postImage?.trim() ? body.postImage.trim() : null;
@@ -108,6 +109,7 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
     if ("productionDate" in body) fields.productionDate = body.productionDate?.trim() ? body.productionDate.trim() : null;
     if ("duration" in body) fields.duration = body.duration?.trim() ? body.duration.trim() : null;
     if ("size" in body) fields.size = body.size?.trim() ? body.size.trim() : null;
+    if ("comments" in body) fields.comments = body.comments?.trim() ? body.comments.trim() : null;
 
     store.updateItem(topicUrl, fields);
     const updated = store.getByUrl(topicUrl);

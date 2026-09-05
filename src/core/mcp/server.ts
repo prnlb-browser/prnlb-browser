@@ -179,14 +179,14 @@ function registerTools(server: McpServer, app: AppContext, searches: Map<string,
     description: "Edit user-maintained details on a result topic or downloaded file.",
     inputSchema: {
       item: itemRefSchema,
-      fields: z.object({ title: z.string().nullable().optional(), postImage: z.string().nullable().optional(), topicUrl: z.string().nullable().optional(), starring: z.string().nullable().optional(), productionDate: z.string().nullable().optional(), duration: z.string().nullable().optional(), size: z.string().nullable().optional() }).partial(),
+      fields: z.object({ title: z.string().nullable().optional(), postImage: z.string().nullable().optional(), topicUrl: z.string().nullable().optional(), starring: z.string().nullable().optional(), productionDate: z.string().nullable().optional(), duration: z.string().nullable().optional(), size: z.string().nullable().optional(), comments: z.string().nullable().optional() }).partial(),
     },
   }, async ({ item, fields }) => {
     requireItem(app, item);
     if (item.type === "result") {
       const { topicUrl: _topicUrl, ...resultFields } = fields;
-      const safeFields: Partial<Pick<TopicData, "title" | "postImage" | "starring" | "productionDate" | "duration" | "size">> = {};
-      for (const key of ["title", "postImage", "starring", "productionDate", "duration", "size"] as const) {
+      const safeFields: Partial<Pick<TopicData, "title" | "postImage" | "starring" | "productionDate" | "duration" | "size" | "comments">> = {};
+      for (const key of ["title", "postImage", "starring", "productionDate", "duration", "size", "comments"] as const) {
         const value = resultFields[key];
         if (value === undefined || (key === "title" && value === null)) continue;
         if (key === "title" && typeof value === "string") safeFields.title = value;
@@ -194,7 +194,8 @@ function registerTools(server: McpServer, app: AppContext, searches: Map<string,
         else if (key === "starring") safeFields.starring = value;
         else if (key === "productionDate") safeFields.productionDate = value;
         else if (key === "duration") safeFields.duration = value;
-        else safeFields.size = value;
+        else if (key === "size") safeFields.size = value;
+        else safeFields.comments = value;
       }
       app.getTopicStore().updateItem(item.topicUrl, safeFields);
     } else {

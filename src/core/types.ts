@@ -38,6 +38,8 @@ export interface TopicData {
   // Existing 0-100 item rate. The calculation is intentionally outside this
   // application; only the value and its sorting are retained here.
   aiRating?: number | null;
+  // User-maintained context for future review or AI analysis.
+  comments?: string | null;
 }
 
 export interface CrawlProgress {
@@ -109,4 +111,6 @@ export interface DownloadedItem {
   // Existing 0-100 item rate. The calculation is intentionally outside this
   // application; only the value and its sorting are retained here.
   aiRating?: number | null;
+  // User-maintained context for future review or AI analysis.
+  comments?: string | null;
 }

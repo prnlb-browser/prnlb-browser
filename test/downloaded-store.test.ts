@@ -22,6 +22,7 @@ describe("DownloadedStore schema", () => {
         productionDate: "2026",
         duration: "00:30:00",
         size: "1.20 GB",
+        comments: "Keep this as a reference for future analysis.",
       });
       assert.equal(item, true);
 
@@ -31,6 +32,7 @@ describe("DownloadedStore schema", () => {
       assert.equal(rows[0]!.productionDate, "2026");
       assert.equal(rows[0]!.duration, "00:30:00");
       assert.equal(rows[0]!.size, "1.20 GB");
+      assert.equal(rows[0]!.comments, "Keep this as a reference for future analysis.");
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -101,6 +103,26 @@ describe("DownloadedStore schema", () => {
       assert.equal(updated!.productionDate, "2026");
       assert.equal(updated!.size, "1.20 GB");
       assert.equal(updated!.cachedImage, "abc.jpg");
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("persists and updates comments without affecting other fields", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new DownloadedStore(dbPath);
+      store.insert({ ...{
+        fileName: "movie.mp4", filePath: "/tmp/comments-movie.mp4", title: "Movie",
+        topicUrl: null, postImage: null, cachedImage: null, starring: null,
+        productionDate: null, duration: null, size: null,
+      }, comments: "Initial context" });
+      const id = store.getAll()[0]!.id;
+      assert.equal(store.updateItem(id, { comments: "Updated context" }), true);
+      assert.equal(store.getById(id)!.comments, "Updated context");
+      assert.equal(store.getById(id)!.title, "Movie");
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });

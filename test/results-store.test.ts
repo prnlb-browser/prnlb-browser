@@ -20,9 +20,11 @@ describe("TopicStore tags", () => {
       const store = new TopicStore(dbPath);
       store.insert({
         ...baseTopic("u1", "A"),
+        comments: "AI should compare this item with the downloaded copy.",
         tags: ["Favorite", " favorite ", "4k", "", "FAVORITE", { name: "watched", color: "#22c55e" }],
       });
       const row = store.getAll()[0]!;
+      assert.equal(row.comments, "AI should compare this item with the downloaded copy.");
       assert.deepEqual(row.tags, [
         { name: "Favorite", color: null },
         { name: "4k", color: null },
@@ -47,6 +49,21 @@ describe("TopicStore tags", () => {
         { name: "new", color: "#ef4444" },
         { name: "queue", color: null },
       ]);
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("persists and updates comments without affecting other fields", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert({ ...baseTopic("u1", "A"), comments: "Initial context" });
+      assert.equal(store.getByUrl("u1")!.comments, "Initial context");
+      assert.equal(store.updateItem("u1", { comments: "Updated context" }), true);
+      assert.equal(store.getByUrl("u1")!.comments, "Updated context");
       store.close();
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
