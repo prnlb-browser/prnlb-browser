@@ -12,6 +12,7 @@ export function getDefaultConfig(): Config {
     dbPath: "data.db",
     downloadedFolder: "",
     screenshotCache: { maxSizeMB: 200 },
+    mcp: { enabled: false },
   };
 }
 
@@ -31,6 +32,7 @@ export class ConfigStore {
       return {
         ...configWithoutAi,
         screenshotCache: { ...defaultConfig.screenshotCache, ...parsed.screenshotCache },
+        mcp: { ...defaultConfig.mcp, ...parsed.mcp },
       } as Config;
     } catch {
       return getDefaultConfig();

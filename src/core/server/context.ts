@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import type { CrawlProgress, TopicData } from "../types.js";
+import type { CrawlProgress, ItemRef, NavigateDestination, TopicData } from "../types.js";
 import { ConfigStore } from "../../config/store.js";
 import { createTopicStore, type TopicStore } from "../../results/store.js";
 import { createDownloadedStore, type DownloadedStore } from "../../downloaded/store.js";
@@ -25,6 +25,7 @@ export class AppContext {
   private topicStore: TopicStore | null = null;
   private downloadedStore: DownloadedStore | null = null;
   private actressStore: ActressStore | null = null;
+  private navigator: ((item: ItemRef, destination: NavigateDestination) => Promise<void>) | null = null;
 
   constructor(
     readonly staticDir: string,
@@ -73,5 +74,14 @@ export class AppContext {
   emitCrawlProgress(progress: CrawlProgress): void {
     this.crawl.lastProgress = progress;
     for (const listener of this.crawl.listeners) listener(progress);
+  }
+
+  setNavigator(navigator: (item: ItemRef, destination: NavigateDestination) => Promise<void>): void {
+    this.navigator = navigator;
+  }
+
+  async navigateToItem(item: ItemRef, destination: NavigateDestination): Promise<void> {
+    if (!this.navigator) throw new Error("Electron navigation is not available");
+    await this.navigator(item, destination);
   }
 }

@@ -36,6 +36,7 @@
 - **📸 Screenshot Tool** — Capture and review topic previews without leaving the app
 - **🧠 Deduplication** — Safe to re‑run: already‑scraped topics and previously scanned files are skipped automatically
 - **🖥️ Desktop App** — Native macOS / Windows / Linux builds available (powered by Electron)
+- **🔌 Embedded MCP Server** — Optionally expose local tools for crawling, searching, organizing items, analysing scaled screenshots, and managing actresses
 
 ---
 
@@ -64,6 +65,12 @@ The source is organized by application tab under `src/config`, `src/crawl`,
 platform, server, scraping, image, and renderer functionality lives under
 `src/core`.
 `public/app.js` is generated from the feature `client.js` files during builds.
+
+The embedded MCP server is disabled by default. Enable it in the Config tab and
+copy the displayed local `/mcp` endpoint into an MCP client. It listens only on
+the app's loopback HTTP server. Screenshot tools return MCP image content scaled
+to a maximum dimension of 600 pixels by default; `every`, `offset`, and `limit`
+can be used to sample large screenshot sets.
 
 A credentials-free `config.template.json` is bundled with the app so the
 defaults are present on first launch; the actual `config.json` (with any

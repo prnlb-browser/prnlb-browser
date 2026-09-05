@@ -39,6 +39,8 @@ function fillForm() {
   document.getElementById("cfg-delay-min").value = config.delay?.min ?? 2000;
   document.getElementById("cfg-delay-max").value = config.delay?.max ?? 5000;
   document.getElementById("cfg-cache-max-size").value = config.screenshotCache?.maxSizeMB ?? 200;
+  document.getElementById("cfg-mcp-enabled").checked = config.mcp?.enabled ?? false;
+  document.getElementById("cfg-mcp-endpoint").textContent = `${window.location.origin}/mcp`;
   renderForums();
 }
 
@@ -53,6 +55,9 @@ function collectForm() {
   };
   config.screenshotCache = {
     maxSizeMB: Math.max(0, parseInt(document.getElementById("cfg-cache-max-size").value, 10) || 0),
+  };
+  config.mcp = {
+    enabled: document.getElementById("cfg-mcp-enabled").checked,
   };
 }
 

@@ -13,6 +13,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH = app.isPackaged
 
 import * as fs from "node:fs";
 import { startServer } from "./server/index.js";
+import type { ItemRef, NavigateDestination } from "./types.js";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -129,6 +130,48 @@ async function createWindow(port: number): Promise<void> {
   });
 }
 
+async function navigateToItem(item: ItemRef, destination: NavigateDestination, appContext: Awaited<ReturnType<typeof startServer>>["app"]): Promise<void> {
+  const record = item.type === "result"
+    ? appContext.getTopicStore().getByUrl(item.topicUrl)
+    : appContext.getDownloadedStore().getById(item.id);
+  if (!record) throw new Error("Item not found");
+
+  const topicUrl = record.topicUrl;
+  const filePath = item.type === "downloaded" ? appContext.getDownloadedStore().getById(item.id)?.filePath ?? null : null;
+  if (destination === "topic") {
+    if (!topicUrl) throw new Error("Item has no topic URL");
+    await shell.openExternal(topicUrl);
+    return;
+  }
+  if (destination === "file") {
+    if (!filePath || !fs.existsSync(filePath)) throw new Error("Downloaded file not found");
+    const error = await shell.openPath(filePath);
+    if (error) throw new Error(error);
+    return;
+  }
+  if (destination === "folder") {
+    if (!filePath || !fs.existsSync(filePath)) throw new Error("Downloaded file not found");
+    shell.showItemInFolder(filePath);
+    return;
+  }
+
+  if (!mainWindow || mainWindow.isDestroyed()) throw new Error("Main window is not available");
+  mainWindow.show();
+  mainWindow.focus();
+  if (mainWindow.webContents.isLoading()) {
+    await new Promise<void>((resolve) => mainWindow!.webContents.once("did-finish-load", () => resolve()));
+  }
+  const tab = item.type === "result" ? "results" : "downloaded";
+  const selectorValue = item.type === "result" ? item.topicUrl : String(item.id);
+  const script = `(() => {
+    document.querySelector('[data-tab="${tab}"]')?.click();
+    const value = ${JSON.stringify(selectorValue)};
+    const card = Array.from(document.querySelectorAll('.result-card')).find((candidate) => ${item.type === "result" ? "candidate.dataset.url === value" : "candidate.dataset.id === value"});
+    card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  })()`;
+  await mainWindow.webContents.executeJavaScript(script, true);
+}
+
 app.whenReady().then(async () => {
   try {
     setupIpcHandlers();
@@ -174,7 +217,8 @@ app.whenReady().then(async () => {
       console.log("⚠️  No bundled config.template.json found at", bundledConfigPath);
     }
 
-    const { port } = await startServer({ staticDir: publicDir, userDataDir, port: 0 });
+    const { port, app: serverApp } = await startServer({ staticDir: publicDir, userDataDir, port: 0 });
+    serverApp.setNavigator((item, destination) => navigateToItem(item, destination, serverApp));
     console.log(`✅ Electron server started on random port ${port}`);
     await createWindow(port);
   } catch (err) {

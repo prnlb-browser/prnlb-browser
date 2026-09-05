@@ -22,5 +22,8 @@
   "dbPath": "data.db",
   "screenshotCache": {
     "maxSizeMB": 200
+  },
+  "mcp": {
+    "enabled": false
   }
 }

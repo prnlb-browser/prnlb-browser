@@ -10,6 +10,7 @@ import { handleImageRoutes } from "../images/routes.js";
 import { AppContext } from "./context.js";
 import { json, serveStatic } from "./http.js";
 import type { RouteHandler } from "./router.js";
+import { createMcpEndpoint } from "../mcp/server.js";
 
 const featureRoutes: RouteHandler[] = [
   handleConfigRoutes,
@@ -24,6 +25,7 @@ const featureRoutes: RouteHandler[] = [
 export interface ServerInfo {
   server: http.Server;
   port: number;
+  app: AppContext;
 }
 
 export interface ServerOptions {
@@ -36,6 +38,7 @@ export function startServer(options: ServerOptions = {}): Promise<ServerInfo> {
   const staticDir = options.staticDir ?? path.resolve(__dirname, "../../../../public");
   const userDataDir = options.userDataDir ?? process.cwd();
   const app = new AppContext(staticDir, userDataDir);
+  const mcpEndpoint = createMcpEndpoint(app);
   app.loadConfig();
   console.log("✅ Config loaded from", app.configStore.path);
 
@@ -44,6 +47,7 @@ export function startServer(options: ServerOptions = {}): Promise<ServerInfo> {
     const method = req.method ?? "GET";
 
     try {
+      if (await mcpEndpoint.handle({ req, res, url, method })) return;
       for (const route of featureRoutes) {
         if (await route({ req, res, url, method, app })) return;
       }
@@ -65,7 +69,7 @@ export function startServer(options: ServerOptions = {}): Promise<ServerInfo> {
       const address = server.address();
       const actualPort = typeof address === "object" && address ? address.port : port;
       console.log(`\n🌐 Server running at http://localhost:${actualPort}`);
-      resolve({ server, port: actualPort });
+      resolve({ server, port: actualPort, app });
     });
     server.on("error", reject);
   });

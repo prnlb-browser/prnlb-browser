@@ -12,7 +12,14 @@ export interface Config {
   // preview carousel. When a write would push the cache over this limit,
   // the oldest (by last-read time) files are deleted first. 0 disables it.
   screenshotCache: { maxSizeMB: number };
+  mcp: { enabled: boolean };
 }
+
+export type ItemRef =
+  | { type: "result"; topicUrl: string }
+  | { type: "downloaded"; id: number };
+
+export type NavigateDestination = "topic" | "file" | "folder" | "app";
 
 export interface TopicData {
   title: string;
