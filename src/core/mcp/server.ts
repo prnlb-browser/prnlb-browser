@@ -132,6 +132,17 @@ function registerTools(server: McpServer, app: AppContext, searches: Map<string,
     return textResult(page(items, offset, limit));
   });
 
+  server.registerTool("set_result_visibility", {
+    description: "Hide or show a saved result topic in the Results tab.",
+    inputSchema: { topicUrl: z.string().min(1), hidden: z.boolean() },
+  }, async ({ topicUrl, hidden }) => {
+    const store = app.getTopicStore();
+    if (!store.setHidden(topicUrl, hidden)) throw new Error("Result item not found");
+    const item = store.getByUrl(topicUrl);
+    if (!item) throw new Error("Result item not found");
+    return textResult({ item, hidden: item.hidden === 1 });
+  });
+
   server.registerTool("search", {
     description: "Search Pornolab and create a temporary search result session.",
     inputSchema: { query: z.string().min(1), forums: z.array(z.number().int()).optional(), start: z.number().int().nonnegative().default(0) },

@@ -178,6 +178,27 @@ describe("TopicStore rates", () => {
   });
 });
 
+describe("TopicStore visibility", () => {
+  it("sets a topic hidden or visible and reports missing topics", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert(baseTopic("u1", "A"));
+
+      assert.equal(store.setHidden("u1", true), true);
+      assert.equal(store.getByUrl("u1")!.hidden, 1);
+      assert.equal(store.setHidden("u1", false), true);
+      assert.equal(store.getByUrl("u1")!.hidden, 0);
+      assert.equal(store.setHidden("missing-url", true), false);
+
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("TopicStore sort", () => {
   it("getAll() defaults to createdAt DESC when no sort is given", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
