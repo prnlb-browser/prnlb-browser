@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const sources = [
+  "src/core/ui/i18n.js",
   "src/core/ui/bootstrap.js",
   "src/config/client.js",
   "src/crawl/client.js",

@@ -58,7 +58,7 @@ async function openImageCarousel(topicUrl, title) {
   const progressText = document.getElementById("carousel-progress-text");
   const progressBarContainer = document.getElementById("carousel-progress-bar-container");
   const progressBar = document.getElementById("carousel-progress-bar");
-  progressText.textContent = "Scraping topic images...";
+  progressText.textContent = t("Scraping topic images...");
   progressBar.style.width = "0%";
   progressBarContainer.hidden = true;
 
@@ -77,7 +77,7 @@ async function openImageCarousel(topicUrl, title) {
         progressBar.style.width = pct + "%";
       } else if (data.phase === "done") {
         if (!data.images || data.images.length === 0) {
-          progressText.textContent = "No images found from supported hosts.";
+        progressText.textContent = t("No images found from supported hosts.");
           progressBarContainer.hidden = true;
           return true;
         }

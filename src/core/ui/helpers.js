@@ -7,14 +7,14 @@ const META_FIELD_GROUP = { "File:": 0, "Forum:": 0, "Cast:": 1, "Date:": 1, "Dur
 const META_GROUP_CLASS = ["result-meta-row result-meta-row--header", "result-meta-row result-meta-row--details"];
 
 function metaFieldRank(label) {
-  const idx = META_FIELD_ORDER.indexOf(label);
+  const idx = META_FIELD_ORDER.indexOf(canonicalUiText(label));
   return idx === -1 ? META_FIELD_ORDER.length : idx;
 }
 
 // Return the row element in metaDiv that holds the given label's group, creating it if needed.
 // Rows are appended in canonical order (header before details).
 function ensureMetaRow(metaDiv, label) {
-  const groupIdx = META_FIELD_GROUP[label] ?? 1;
+  const groupIdx = META_FIELD_GROUP[canonicalUiText(label)] ?? 1;
   const rows = metaDiv.querySelectorAll(":scope > .result-meta-row");
   let row = rows[groupIdx];
   if (!row) {

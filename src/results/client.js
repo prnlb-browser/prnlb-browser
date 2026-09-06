@@ -106,7 +106,7 @@ async function loadResults() {
     const url = qs ? `/api/results?${qs}` : "/api/results";
     const res = await fetch(url);
     if (!res.ok) {
-      resultsContainer.innerHTML = '<div class="empty-state">No results yet. Run a crawl first.</div>';
+      resultsContainer.innerHTML = `<div class="empty-state">${esc(t("No results yet. Run a crawl first."))}</div>`;
       resultCount.textContent = "";
       return;
     }
@@ -123,17 +123,17 @@ async function loadResults() {
       filtered = filtered.filter((t) => matchesActressFilter(t, actressMode));
     }
 
-    resultCount.textContent = `${filtered.length} topics` + (q ? ` (search: "${q}")` : " in DB");
+    resultCount.textContent = `${filtered.length} ${t("topics")}` + (q ? ` (${t("search")}: "${q}")` : ` ${t("in DB")}`);
     if (forum) resultCount.textContent += ` — ${forum}`;
     if (actressMode === "fav") {
-      resultCount.textContent += ` — ★ fav actresses`;
+      resultCount.textContent += ` — ${t("★ fav actresses")}`;
     } else if (actressMode.startsWith("actress:")) {
       const actress = actressItems.find((a) => a.id === parseInt(actressMode.slice("actress:".length), 10));
       if (actress) resultCount.textContent += ` — 🎭 ${actress.name}`;
     }
     if (activeTagFilters.length) resultCount.textContent += ` — 🏷️ ${activeTagFilters.join(", ")}`;
     if (filtered.length === 0) {
-      resultsContainer.innerHTML = '<div class="empty-state">No topics found.</div>';
+      resultsContainer.innerHTML = `<div class="empty-state">${esc(t("No topics found."))}</div>`;
       return;
     }
     resultsContainer.innerHTML = filtered
@@ -170,7 +170,7 @@ async function loadResults() {
             </div>
             ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
             ${t.postImage ? `<button class="btn btn-small" data-action="screens">🖼 Screens</button>` : ""}
-            <button class="btn btn-small btn-hide" data-action="toggle-hide">${isHidden ? "👁 Show" : "🙈 Hide"}</button>
+            <button class="btn btn-small btn-hide" data-action="toggle-hide">${isHidden ? t("👁 Show") : t("🙈 Hide")}</button>
           </div>
           <div class="item-tags" data-item-tags>
             ${tagsHtml}
@@ -183,7 +183,7 @@ async function loadResults() {
       )
       .join("");
   } catch (err) {
-    resultsContainer.innerHTML = `<div class="empty-state">Error: ${esc(err.message)}</div>`;
+    resultsContainer.innerHTML = `<div class="empty-state">${esc(t("Error: {message}", { message: err.message }))}</div>`;
   }
 }
 
@@ -207,7 +207,7 @@ resultsContainer.addEventListener("click", async (e) => {
   if (!topicUrl) return;
 
   const nowHidden = await toggleHidden(topicUrl);
-  btn.textContent = nowHidden ? "👁 Show" : "🙈 Hide";
+  btn.textContent = nowHidden ? t("👁 Show") : t("🙈 Hide");
 
   // If in "exclude" mode, re-render to remove hidden cards immediately
   if (filterHidden.value === "exclude" && nowHidden) {
@@ -304,7 +304,7 @@ resultsContainer.addEventListener("click", (e) => {
 });
 
 async function refreshTopicDetails(topicUrl, title, card) {
-  if (!confirm(`Refresh details for "${title}"?`)) return;
+  if (!confirm(t('Refresh details for "{title}"?', { title }))) return;
 
   try {
     const res = await fetch("/api/results/refresh-details", {
@@ -359,12 +359,12 @@ async function refreshTopicDetails(topicUrl, title, card) {
             }
           }
         } else if (data.phase === "error") {
-          alert(`Error: ${data.message}`);
+          alert(t("Error: {message}", { message: data.message }));
         }
       }
     }
   } catch (err) {
-    alert(`Failed to reload details: ${err.message}`);
+    alert(t("Failed to reload details: {message}", { message: err.message }));
   }
 }
 
@@ -374,7 +374,7 @@ function updateMetaField(metaDiv, label, value) {
   let found = false;
   for (const span of spans) {
     const labelEl = span.querySelector(".label");
-    if (labelEl && labelEl.textContent === label) {
+    if (labelEl && labelEl.textContent === t(label)) {
       if (value) {
         const valEl = span.querySelector(".value");
         if (valEl) {
@@ -396,7 +396,7 @@ function updateMetaField(metaDiv, label, value) {
   if (!found && value) {
     const newSpan = document.createElement("span");
     const valueHtml = label === "Cast:" ? renderCastLinks(value) : esc(value);
-    newSpan.innerHTML = `<span class="label">${label}</span> <span class="value">${valueHtml}</span>`;
+    newSpan.innerHTML = `<span class="label">${t(label)}</span> <span class="value">${valueHtml}</span>`;
     appendMetaField(metaDiv, newSpan, label);
   }
 }
@@ -466,7 +466,7 @@ resultsEditSaveBtn.addEventListener("click", async () => {
 
   resultsEditSaveBtn.disabled = true;
   resultsEditCancelBtn.disabled = true;
-  resultsEditStatus.textContent = "Saving...";
+  resultsEditStatus.textContent = t("Saving...");
   resultsEditStatus.className = "status-msg";
 
   try {
@@ -480,7 +480,7 @@ resultsEditSaveBtn.addEventListener("click", async () => {
     if (data.item) applyResultsEditToCard(topicUrl, data.item);
     closeResultsEditModal();
   } catch (err) {
-    resultsEditStatus.textContent = `Error: ${err.message}`;
+    resultsEditStatus.textContent = t("Error: {message}", { message: err.message });
     resultsEditStatus.className = "status-msg error";
   } finally {
     resultsEditSaveBtn.disabled = false;
@@ -547,7 +547,7 @@ function applyResultsEditToCard(topicUrl, item) {
 }
 
 async function deleteTopicFromDb(topicUrl, card) {
-  if (!confirm(`Delete this topic from the database? This cannot be undone.`)) return;
+  if (!confirm(t("Delete this topic from the database? This cannot be undone."))) return;
 
   try {
     const res = await fetch(`/api/results/item?url=${encodeURIComponent(topicUrl)}`, {
@@ -563,16 +563,16 @@ async function deleteTopicFromDb(topicUrl, card) {
       // Update count
       const countEl = document.getElementById("results-count");
       if (countEl) {
-        const match = countEl.textContent.match(/^(\d+) topics/);
+        const match = countEl.textContent.match(/^(\d+)/);
         if (match) {
           const newCount = parseInt(match[1], 10) - 1;
-          countEl.textContent = countEl.textContent.replace(/^\d+ topics/, `${newCount} topics`);
+          countEl.textContent = countEl.textContent.replace(/^\d+/, String(newCount));
         }
       }
     } else {
-      alert("Topic not found in database.");
+      alert(t("Topic not found in database."));
     }
   } catch (err) {
-    alert(`Failed to delete: ${err.message}`);
+    alert(t("Failed to delete: {message}", { message: err.message }));
   }
 }

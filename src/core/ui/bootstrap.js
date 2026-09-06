@@ -67,12 +67,12 @@ captchaModal.addEventListener("click", (e) => {
 async function submitCaptchaCode() {
   const code = captchaCodeInput.value.trim();
   if (!code) {
-    captchaStatus.textContent = "Please enter the captcha code";
+    captchaStatus.textContent = t("Please enter the captcha code");
     captchaStatus.style.color = "#ff6b6b";
     return;
   }
 
-  captchaStatus.textContent = "Submitting...";
+  captchaStatus.textContent = t("Submitting...");
   captchaStatus.style.color = "#aaa";
   captchaSubmit.disabled = true;
 
@@ -84,11 +84,11 @@ async function submitCaptchaCode() {
     });
     const data = await res.json();
     if (data.success) {
-      captchaStatus.textContent = "Code submitted! Waiting for login...";
+      captchaStatus.textContent = t("Code submitted! Waiting for login...");
       captchaStatus.style.color = "#51cf66";
       setTimeout(() => closeCaptchaModal(), 1500);
     } else {
-      captchaStatus.textContent = "Failed to submit code — challenge expired";
+      captchaStatus.textContent = t("Failed to submit code — challenge expired");
       captchaStatus.style.color = "#ff6b6b";
     }
   } catch (err) {

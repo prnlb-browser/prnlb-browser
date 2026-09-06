@@ -42,14 +42,14 @@ function renderActressTiles() {
     );
   }
 
-  actressCountEl.textContent = visible.length ? `${visible.length} actress(es)` : "";
+  actressCountEl.textContent = visible.length ? t("{count} actress(es)", { count: visible.length }) : "";
 
   if (actressItems.length === 0) {
-    actressContainer.innerHTML = '<div class="empty-state">No actresses yet. Click "New actress" to add one.</div>';
+    actressContainer.innerHTML = `<div class="empty-state">${esc(t('No actresses yet. Click "New actress" to add one.'))}</div>`;
     return;
   }
   if (visible.length === 0) {
-    actressContainer.innerHTML = '<div class="empty-state">No actresses match the current search.</div>';
+    actressContainer.innerHTML = `<div class="empty-state">${esc(t("No actresses match the current search."))}</div>`;
     return;
   }
 
@@ -62,11 +62,11 @@ function renderActressTiles() {
           ${src
             ? `<img class="actress-tile-thumb" src="${src}" alt="" loading="lazy" onerror="this.style.display='none'" />`
             : `<div class="actress-tile-placeholder">🎭</div>`}
-          <button class="actress-tile-fav${a.isFavorite ? " actress-tile-fav--active" : ""}" data-action="toggle-favorite" data-id="${a.id}" title="${a.isFavorite ? "Remove from favorites" : "Add to favorites"}" type="button">${a.isFavorite ? "★" : "☆"}</button>
+          <button class="actress-tile-fav${a.isFavorite ? " actress-tile-fav--active" : ""}" data-action="toggle-favorite" data-id="${a.id}" title="${a.isFavorite ? t("Remove from favorites") : t("Add to favorites")}" type="button">${a.isFavorite ? "★" : "☆"}</button>
           <div class="actress-tile-quick-actions">
-            <button class="actress-tile-quick-action" data-action="open-downloaded" data-id="${a.id}" title="Open in Downloaded" type="button">📥</button>
-            <button class="actress-tile-quick-action" data-action="open-results" data-id="${a.id}" title="Open in Results" type="button">📊</button>
-            <button class="actress-tile-quick-action" data-action="run-search" data-id="${a.id}" title="Search forums" type="button">🔍</button>
+            <button class="actress-tile-quick-action" data-action="open-downloaded" data-id="${a.id}" title="${t("Open in Downloaded")}" type="button">📥</button>
+            <button class="actress-tile-quick-action" data-action="open-results" data-id="${a.id}" title="${t("Open in Results")}" type="button">📊</button>
+            <button class="actress-tile-quick-action" data-action="run-search" data-id="${a.id}" title="${t("Search forums")}" type="button">🔍</button>
           </div>
         </div>
         <div class="actress-tile-name">${esc(a.name)}</div>
@@ -229,7 +229,7 @@ function openActressModal(actress, prefillName) {
   actressModalOriginalPostImage = actress ? actress.postImage : null;
 
   actressIdInput.value = actressModalId ? String(actressModalId) : "";
-  actressModalTitle.textContent = actress ? "🎭 Actress" : "🎭 New actress";
+  actressModalTitle.textContent = actress ? t("🎭 Actress") : t("🎭 New actress");
   actressDeleteBtn.hidden = !actress;
   actressNameInput.value = actress ? actress.name : prefillName || "";
   actressImageUrlInput.value = "";
@@ -308,18 +308,18 @@ async function createActressRecord(name, otherNames, postImageUrl) {
 
 async function applyActressImageUrl(url) {
   if (!url) {
-    actressImageStatus.textContent = "Enter a URL first";
+    actressImageStatus.textContent = t("Enter a URL first");
     actressImageStatus.className = "status-msg error";
     return;
   }
   const name = actressNameInput.value.trim();
   if (!name) {
-    actressImageStatus.textContent = "Enter a name first";
+    actressImageStatus.textContent = t("Enter a name first");
     actressImageStatus.className = "status-msg error";
     return;
   }
 
-  actressImageStatus.textContent = "Resolving & downloading...";
+  actressImageStatus.textContent = t("Resolving & downloading...");
   actressImageStatus.className = "status-msg";
   actressApplyImageBtn.disabled = true;
   actressClearImageBtn.disabled = true;
@@ -331,7 +331,7 @@ async function applyActressImageUrl(url) {
       if (!created) throw new Error("Failed to create actress");
       actressModalId = created.id;
       actressIdInput.value = String(actressModalId);
-      actressModalTitle.textContent = "🎭 Actress";
+      actressModalTitle.textContent = t("🎭 Actress");
       actressDeleteBtn.hidden = false;
     }
     const res = await fetch("/api/actresses/item", {
@@ -346,7 +346,7 @@ async function applyActressImageUrl(url) {
     actressModalPendingImageUrl = null; // now backed by a local cached copy
     actressImageCacheBust.set(actressModalId, Date.now());
     updateActressImagePreview();
-    actressImageStatus.textContent = actressModalCachedImage ? "✅ Image updated" : "⚠️ Couldn't resolve — original kept";
+    actressImageStatus.textContent = actressModalCachedImage ? t("✅ Image updated") : t("⚠️ Couldn't resolve — original kept");
     actressImageStatus.className = "status-msg " + (actressModalCachedImage ? "success" : "error");
     await loadActresses();
   } catch (err) {
@@ -380,7 +380,7 @@ actressClearImageBtn.addEventListener("click", async () => {
     actressModalPostImage = null;
     actressImageCacheBust.set(actressModalId, Date.now());
     updateActressImagePreview();
-    actressImageStatus.textContent = "Image cleared";
+    actressImageStatus.textContent = t("Image cleared");
     actressImageStatus.className = "status-msg success";
     await loadActresses();
   } catch (err) {
@@ -392,14 +392,14 @@ actressClearImageBtn.addEventListener("click", async () => {
 actressSaveBtn.addEventListener("click", async () => {
   const name = actressNameInput.value.trim();
   if (!name) {
-    actressModalStatus.textContent = "Name is required";
+    actressModalStatus.textContent = t("Name is required");
     actressModalStatus.className = "status-msg error";
     return;
   }
 
   actressSaveBtn.disabled = true;
   actressCancelBtn.disabled = true;
-  actressModalStatus.textContent = "Saving...";
+  actressModalStatus.textContent = t("Saving...");
   actressModalStatus.className = "status-msg";
   try {
     if (actressModalId) {
@@ -432,7 +432,7 @@ actressSaveBtn.addEventListener("click", async () => {
 
 actressDeleteBtn.addEventListener("click", async () => {
   if (!actressModalId) return;
-  if (!confirm("Delete this actress? This cannot be undone.")) return;
+  if (!confirm(t("Delete this actress? This cannot be undone."))) return;
   try {
     const res = await fetch(`/api/actresses/item?id=${actressModalId}`, { method: "DELETE" });
     const data = await res.json();
@@ -489,12 +489,12 @@ async function applyActressLookupDetails(details) {
 async function runActressLookup(providerId, providerLabel) {
   const query = actressNameInput.value.trim();
   if (!query) {
-    actressModalStatus.textContent = "Enter a name first";
+    actressModalStatus.textContent = t("Enter a name first");
     actressModalStatus.className = "status-msg error";
     return;
   }
   actressLookupButtons.forEach(({ el }) => { if (el) el.disabled = true; });
-  actressModalStatus.textContent = `Fetching from ${providerLabel}...`;
+  actressModalStatus.textContent = t("Fetching from {provider}...", { provider: providerLabel });
   actressModalStatus.className = "status-msg";
   try {
     const searchRes = await fetch(

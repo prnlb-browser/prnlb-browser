@@ -61,7 +61,7 @@ async function loadSearchForumOptions() {
     searchForumFilter.innerHTML = "";
     const allOpt = document.createElement("option");
     allOpt.value = "-1";
-    allOpt.textContent = "Everywhere";
+    allOpt.textContent = t("Everywhere");
     allOpt.selected = true;
     searchForumFilter.appendChild(allOpt);
     forums.forEach((f) => {
@@ -86,20 +86,20 @@ function getSelectedSearchForums() {
 async function performSearch(start = 0) {
   const query = searchQuery.value.trim();
   if (!query) {
-    showStatus(searchStatus, "Enter a search phrase", true);
+    showStatus(searchStatus, t("Enter a search phrase"), true);
     return;
   }
   if (isSearching) return;
   isSearching = true;
   btnSearch.disabled = true;
-  btnSearch.textContent = "⏳ Searching...";
+  btnSearch.textContent = t("⏳ Searching...");
   searchResultsContainer.innerHTML = "";
   const paginationEl = document.getElementById("search-pagination");
   if (paginationEl) paginationEl.innerHTML = "";
   searchProgress.hidden = false;
   searchProgressLog.textContent = "";
   searchProgressBar.style.width = "0%";
-  showStatus(searchStatus, start > 0 ? `Loading page ${Math.floor(start / 50) + 1}...` : "Starting search...", false);
+  showStatus(searchStatus, start > 0 ? t("Loading page {page}...", { page: Math.floor(start / 50) + 1 }) : t("Starting search..."), false);
 
   const forums = getSelectedSearchForums();
 
@@ -166,48 +166,48 @@ async function performSearch(start = 0) {
   } finally {
     isSearching = false;
     btnSearch.disabled = false;
-    btnSearch.textContent = "🔍 Search";
+    btnSearch.textContent = t("🔍 Search");
   }
 }
 
 function renderSearchResults(topics) {
   if (!topics || topics.length === 0) {
     searchResultsContainer.innerHTML =
-      '<div class="empty-state">No results found.</div>';
-    showStatus(searchStatus, "No results", false);
+      `<div class="empty-state">${esc(t("No results found."))}</div>`;
+    showStatus(searchStatus, t("No results"), false);
     return;
   }
 
   lastSearchResults = topics;
 
-  showStatus(searchStatus, `${topics.length} results found`, false);
+  showStatus(searchStatus, t("{count} results found", { count: topics.length }), false);
 
   searchResultsContainer.innerHTML = topics
-    .map((t, idx) => {
-      const isFav = matchesFavActress(t);
+    .map((topic, idx) => {
+      const isFav = matchesFavActress(topic);
       const extraClass = isFav ? " result-card--fav" : "";
       return `
-      <div class="result-card${extraClass}" data-url="${esc(t.topicUrl)}" data-title="${esc(t.title)}" data-idx="${idx}">
+      <div class="result-card${extraClass}" data-url="${esc(topic.topicUrl)}" data-title="${esc(topic.title)}" data-idx="${idx}">
         <div class="result-thumb-container">
-          ${t.postImage
-            ? `<img class="result-thumb" src="${esc(t.postImage)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
+          ${topic.postImage
+            ? `<img class="result-thumb" src="${esc(topic.postImage)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
             : `<div class="result-thumb-placeholder">📷</div>`}
         </div>
         <div class="result-info">
-          <div class="result-title"><a href="${esc(t.topicUrl)}" target="_blank">${isFav ? "★ " : ""}${esc(t.title)}</a></div>
+          <div class="result-title"><a href="${esc(topic.topicUrl)}" target="_blank">${isFav ? "★ " : ""}${esc(topic.title)}</a></div>
           <div class="result-meta">
-            ${t.sourceForum ? `<div class="result-meta-row result-meta-row--header"><span><span class="label">Forum:</span> <span class="value">${esc(t.sourceForum)}</span></span></div>` : ""}
+            ${topic.sourceForum ? `<div class="result-meta-row result-meta-row--header"><span><span class="label">Forum:</span> <span class="value">${esc(topic.sourceForum)}</span></span></div>` : ""}
             <div class="result-meta-row result-meta-row--details">
-              ${t.starring ? `<span class="detail-starring"><span class="label">Cast:</span> <span class="value">${esc(t.starring)}</span></span>` : ""}
-              ${t.productionDate ? `<span class="detail-date"><span class="label">Date:</span> <span class="value">${esc(t.productionDate)}</span></span>` : ""}
-              ${t.duration ? `<span class="detail-duration"><span class="label">Duration:</span> <span class="value">${esc(t.duration)}</span></span>` : ""}
-              ${t.size ? `<span><span class="label">Size:</span> <span class="value">${esc(t.size)}</span></span>` : ""}
+              ${topic.starring ? `<span class="detail-starring"><span class="label">Cast:</span> <span class="value">${esc(topic.starring)}</span></span>` : ""}
+              ${topic.productionDate ? `<span class="detail-date"><span class="label">Date:</span> <span class="value">${esc(topic.productionDate)}</span></span>` : ""}
+              ${topic.duration ? `<span class="detail-duration"><span class="label">Duration:</span> <span class="value">${esc(topic.duration)}</span></span>` : ""}
+              ${topic.size ? `<span><span class="label">Size:</span> <span class="value">${esc(topic.size)}</span></span>` : ""}
             </div>
           </div>
           <div class="result-actions">
-            ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
-            <button class="btn btn-small" data-action="screens" ${t.postImage ? "" : 'style="display:none"'}>🖼 Screens</button>
-            <button class="btn btn-small btn-add" data-action="add">➕ Add</button>
+            ${topic.torrentUrl ? `<a class="btn btn-small" href="${esc(topic.torrentUrl)}" target="_blank">${t("⬇ Torrent")}</a>` : ""}
+            <button class="btn btn-small" data-action="screens" ${topic.postImage ? "" : 'style="display:none"'}>${t("🔍 Screens")}</button>
+            <button class="btn btn-small btn-add" data-action="add">${t("➕ Add")}</button>
           </div>
         </div>
       </div>`;
@@ -229,7 +229,7 @@ function renderSearchPagination(pagination) {
 
   // Previous button
   if (pagination.currentPage > 1) {
-    html += `<button class="btn btn-small page-btn" data-start="${(pagination.currentPage - 2) * pagination.perPage}">← Prev</button>`;
+    html += `<button class="btn btn-small page-btn" data-start="${(pagination.currentPage - 2) * pagination.perPage}">${t("← Prev")}</button>`;
   }
 
   // Page numbers
@@ -264,7 +264,7 @@ function renderSearchPagination(pagination) {
 
   // Next button
   if (pagination.currentPage < pagination.totalPages) {
-    html += `<button class="btn btn-small page-btn" data-start="${pagination.currentPage * pagination.perPage}">Next →</button>`;
+    html += `<button class="btn btn-small page-btn" data-start="${pagination.currentPage * pagination.perPage}">${t("Next →")}</button>`;
   }
 
   html += "</div>";
@@ -420,12 +420,12 @@ searchResultsContainer.addEventListener("click", async (e) => {
       });
       const data = await res.json();
       if (data.inserted) {
-        addBtn.textContent = "✅ Added";
+        addBtn.textContent = t("✅ Added");
         addBtn.disabled = true;
         addBtn.classList.remove("btn-add");
         addBtn.classList.add("btn-success");
       } else {
-        addBtn.textContent = "⚠️ Exists";
+        addBtn.textContent = t("⚠️ Exists");
         addBtn.disabled = true;
       }
     } catch (err) {
@@ -452,4 +452,3 @@ btnSearch.addEventListener("click", () => performSearch());
 searchQuery.addEventListener("keydown", (e) => {
   if (e.key === "Enter") performSearch();
 });
-

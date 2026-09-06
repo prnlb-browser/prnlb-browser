@@ -148,7 +148,7 @@ function createTagFilterControl({ selectEl, wrapEl, clearBtnEl, onChange }) {
     if (knownTags.length === 0) {
       const empty = document.createElement("option");
       empty.value = "";
-      empty.textContent = "No tags yet";
+      empty.textContent = t("No tags yet");
       empty.disabled = true;
       empty.selected = true;
       selectEl.appendChild(empty);
@@ -326,7 +326,7 @@ const TagModal = (() => {
   function renderCurrent() {
     if (!target) return;
     if (!target.tags.length) {
-      currentEl.innerHTML = '<span class="status-msg">No tags yet.</span>';
+      currentEl.innerHTML = `<span class="status-msg">${esc(t("No tags yet."))}</span>`;
       return;
     }
     currentEl.innerHTML = target.tags.map((raw) => {
@@ -403,27 +403,27 @@ const TagModal = (() => {
     if (!target) return;
     const raw = input.value.trim();
     if (!raw) {
-      statusEl.textContent = "Enter a tag name first";
+      statusEl.textContent = t("Enter a tag name first");
       statusEl.className = "status-msg error";
       return;
     }
     const lowerCurrent = new Set(target.tags.map((t) => tagNameLower(t)));
     if (lowerCurrent.has(raw.toLowerCase())) {
-      statusEl.textContent = `Tag "${raw}" is already on this item`;
+      statusEl.textContent = t('Tag "{tag}" is already on this item', { tag: raw });
       statusEl.className = "status-msg error";
       return;
     }
     saveBtn.disabled = true;
-    statusEl.textContent = "Saving...";
+    statusEl.textContent = t("Saving...");
     statusEl.className = "status-msg";
     const updated = await assign(raw, selectedColor);
     saveBtn.disabled = false;
     if (updated === null) return;
     input.value = "";
-    statusEl.textContent = `Tag "${raw}" added`;
+    statusEl.textContent = t('Tag "{tag}" added', { tag: raw });
     statusEl.className = "status-msg success";
     setTimeout(() => {
-      if (statusEl.textContent === `Tag "${raw}" added`) {
+      if (statusEl.textContent === t('Tag "{tag}" added', { tag: raw })) {
         statusEl.textContent = "";
         statusEl.className = "status-msg";
       }

@@ -68,7 +68,7 @@ btnSelectFolder.addEventListener("click", async () => {
   if (!folder) return;
 
   // Confirm
-  if (!confirm(`Scan folder "${folder}"?\n\nThis will purge existing downloaded data and search pornolab for each video file.`)) return;
+  if (!confirm(t('Scan folder "{folder}"?\n\nThis will purge existing downloaded data and search pornolab for each video file.', { folder }))) return;
 
   currentFolder = folder;
   folderPathInput.value = folder;
@@ -99,7 +99,7 @@ async function scanFolder(folderPath, mode) {
   downloadedProgressLog.textContent = "";
   downloadedProgressBar.style.width = "0%";
   const isIncremental = mode === "scan-incremental";
-  showStatus(downloadedStatus, isIncremental ? "Refreshing..." : "Scanning...", false);
+  showStatus(downloadedStatus, isIncremental ? t("Refreshing...") : t("Scanning..."), false);
 
   const endpoint = `/api/downloaded/${mode}`;
 
@@ -238,7 +238,7 @@ function renderDownloadedItems() {
     : `${visible.length} of ${downloadedItems.length} file(s)`;
   downloadedCount.textContent = visible.length ? totalLabel : "";
   if (actressMode === "fav" && visible.length) {
-    downloadedCount.textContent += " — ★ fav actresses";
+    downloadedCount.textContent += ` — ${t("★ fav actresses")}`;
   } else if (actressMode.startsWith("actress:") && visible.length) {
     const actress = actressItems.find((a) => a.id === parseInt(actressMode.slice("actress:".length), 10));
     if (actress) downloadedCount.textContent += ` — 🎭 ${actress.name}`;
@@ -248,11 +248,11 @@ function renderDownloadedItems() {
   }
 
   if (downloadedItems.length === 0) {
-    downloadedContainer.innerHTML = '<div class="empty-state">No downloaded files found.</div>';
+    downloadedContainer.innerHTML = `<div class="empty-state">${esc(t("No downloaded files found."))}</div>`;
     return;
   }
   if (visible.length === 0) {
-    downloadedContainer.innerHTML = '<div class="empty-state">No items match the current filter.</div>';
+    downloadedContainer.innerHTML = `<div class="empty-state">${esc(t("No items match the current filter."))}</div>`;
     return;
   }
 
@@ -351,7 +351,7 @@ downloadedContainer.addEventListener("click", async (e) => {
     const id = parseInt(card.dataset.id, 10);
 
     try {
-      showStatus(downloadedStatus, "Refreshing details...", false);
+      showStatus(downloadedStatus, t("Refreshing details..."), false);
       const res = await fetch("/api/downloaded/refresh-item", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -394,7 +394,7 @@ downloadedContainer.addEventListener("click", async (e) => {
     deleteBtn.closest(".popup-menu")?.classList.remove("open");
     const card = deleteBtn.closest(".result-card");
     const id = parseInt(card.dataset.id, 10);
-    if (!confirm("Delete this downloaded file and its database entry?")) return;
+    if (!confirm(t("Delete this downloaded file and its database entry?"))) return;
 
     try {
       const res = await fetch(`/api/downloaded/item?id=${id}`, { method: "DELETE" });
@@ -585,11 +585,11 @@ editApplyPostImage.addEventListener("click", async () => {
   if (!editItem) return;
   const url = editPostImageUrlInput.value.trim();
   if (!url) {
-    editPostImageStatus.textContent = "Enter a URL first";
+    editPostImageStatus.textContent = t("Enter a URL first");
     editPostImageStatus.className = "status-msg error";
     return;
   }
-  editPostImageStatus.textContent = "Resolving & downloading...";
+  editPostImageStatus.textContent = t("Resolving & downloading...");
   editPostImageStatus.className = "status-msg";
   editApplyPostImage.disabled = true;
   editClearPostImage.disabled = true;
@@ -618,13 +618,13 @@ editApplyPostImage.addEventListener("click", async () => {
       }
     }
     if (editItem.cachedImage) {
-      editPostImageStatus.textContent = "✅ Image updated";
+      editPostImageStatus.textContent = t("✅ Image updated");
       editPostImageStatus.className = "status-msg success";
     } else if (editItem.postImage === url) {
-      editPostImageStatus.textContent = "⚠️ Couldn't resolve/download — URL saved without preview";
+      editPostImageStatus.textContent = t("⚠️ Couldn't resolve/download — URL saved without preview");
       editPostImageStatus.className = "status-msg error";
     } else {
-      editPostImageStatus.textContent = "⚠️ Couldn't resolve — original kept";
+      editPostImageStatus.textContent = t("⚠️ Couldn't resolve — original kept");
       editPostImageStatus.className = "status-msg error";
     }
   } catch (err) {
@@ -651,7 +651,7 @@ editClearPostImage.addEventListener("click", async () => {
     editPostImageImg.removeAttribute("src");
     editPostImageImg.style.display = "none";
     editPostImagePlaceholder.style.display = "block";
-    editPostImageStatus.textContent = "Image cleared";
+    editPostImageStatus.textContent = t("Image cleared");
     editPostImageStatus.className = "status-msg success";
   } catch (err) {
     editPostImageStatus.textContent = `Error: ${err.message}`;
@@ -691,7 +691,7 @@ editSaveBtn.addEventListener("click", async () => {
     });
     await streamEditSse(res, null, null);
     await loadDownloadedItems();
-    showStatus(downloadedStatus, "Item updated", false);
+    showStatus(downloadedStatus, t("Item updated"), false);
     closeEditModal();
   } catch (err) {
     editProgressLog.textContent += `\n❌ ${err.message}\n`;

@@ -5,7 +5,7 @@ const progressBar = document.getElementById("progress-bar");
 // --- Crawl ---
 
 function appendLog(text) {
-  if (progressLog.textContent === "Waiting...") progressLog.textContent = "";
+  if (progressLog.textContent === t("Waiting...")) progressLog.textContent = "";
   progressLog.textContent += text + "\n";
   progressLog.scrollTop = progressLog.scrollHeight;
 }
@@ -45,7 +45,7 @@ function connectSSE() {
 function setRunning(running) {
   isRunning = running;
   btnStart.disabled = running;
-  btnStart.textContent = running ? "⏳ Running..." : "▶ Start Crawl";
+  btnStart.textContent = running ? t("⏳ Running...") : t("▶ Start Crawl");
 }
 
 btnStart.addEventListener("click", async () => {

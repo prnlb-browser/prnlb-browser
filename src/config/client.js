@@ -89,14 +89,14 @@ btnSaveConfig.addEventListener("click", async () => {
       body: JSON.stringify(config),
     });
     if (!res.ok) throw new Error("Save failed");
-    showStatus(configStatus, "Config saved!", false);
+    showStatus(configStatus, t("Config saved!"), false);
   } catch (err) {
     showStatus(configStatus, err.message, true);
   }
 });
 
 btnClearDb.addEventListener("click", async () => {
-  if (!confirm("Are you sure you want to delete ALL topics from the database? This cannot be undone.")) return;
+  if (!confirm(t("Are you sure you want to delete ALL topics from the database? This cannot be undone."))) return;
   try {
     const res = await fetch("/api/results", { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to clear database");
@@ -108,7 +108,7 @@ btnClearDb.addEventListener("click", async () => {
 });
 
 btnClearTurboImageHostCookies.addEventListener("click", async () => {
-  if (!confirm("Clear TurboImageHost cookies, local storage, and cache? This closes any active verification window and cancels its current image resolution. Your app settings, Pornolab login, saved results, and screenshot cache will not be changed.")) return;
+  if (!confirm(t("Clear TurboImageHost cookies, local storage, and cache? This closes any active verification window and cancels its current image resolution. Your app settings, Pornolab login, saved results, and screenshot cache will not be changed."))) return;
   btnClearTurboImageHostCookies.disabled = true;
   try {
     const res = await fetch("/api/config/turboimagehost/verification-data", { method: "DELETE" });
@@ -135,7 +135,7 @@ document.getElementById("btn-export-csv").addEventListener("click", async () => 
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    showStatus(configStatus, "CSV exported!", false);
+    showStatus(configStatus, t("CSV exported!"), false);
   } catch (err) {
     showStatus(configStatus, err.message, true);
   }
