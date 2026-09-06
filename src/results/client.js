@@ -138,27 +138,27 @@ async function loadResults() {
     }
     resultsContainer.innerHTML = filtered
       .map(
-        (t) => {
-          const isHidden = hiddenSet.has(t.topicUrl);
-          const isFav = matchesFavActress(t);
+        (topic) => {
+          const isHidden = hiddenSet.has(topic.topicUrl);
+          const isFav = matchesFavActress(topic);
           const extraClass = isFav ? " result-card--fav" : "";
-          const tagsData = encodeTagsDataAttr(t.tags || []);
-          const tagsHtml = renderTagChips(t.tags || []);
+          const tagsData = encodeTagsDataAttr(topic.tags || []);
+          const tagsHtml = renderTagChips(topic.tags || []);
           return `
-      <div class="result-card${isHidden ? " result-card--hidden" : ""}${extraClass}" data-url="${esc(t.topicUrl)}" data-title="${esc(t.title)}" data-starring="${esc(t.starring || "")}" data-production-date="${esc(t.productionDate || "")}" data-duration="${esc(t.duration || "")}" data-size="${esc(t.size || "")}" data-post-image="${esc(t.postImage || "")}" data-comments="${esc(t.comments || "")}" data-tags="${tagsData}">
-        ${t.postImage ? `<img class="result-thumb" src="${esc(t.postImage)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ""}
+      <div class="result-card${isHidden ? " result-card--hidden" : ""}${extraClass}" data-url="${esc(topic.topicUrl)}" data-title="${esc(topic.title)}" data-starring="${esc(topic.starring || "")}" data-production-date="${esc(topic.productionDate || "")}" data-duration="${esc(topic.duration || "")}" data-size="${esc(topic.size || "")}" data-post-image="${esc(topic.postImage || "")}" data-comments="${esc(topic.comments || "")}" data-tags="${tagsData}">
+        ${topic.postImage ? `<img class="result-thumb" src="${esc(topic.postImage)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ""}
         <div class="result-info">
-          <div class="result-title"><a href="${esc(t.topicUrl)}" target="_blank">${isFav ? "★ " : ""}${esc(t.title)}</a></div>
+          <div class="result-title"><a href="${esc(topic.topicUrl)}" target="_blank">${isFav ? "★ " : ""}${esc(topic.title)}</a></div>
           <div class="result-meta">
-            ${t.sourceForum ? `<div class="result-meta-row result-meta-row--header"><span><span class="label">Forum:</span> <span class="value">${esc(t.sourceForum)}</span></span></div>` : ""}
+            ${topic.sourceForum ? `<div class="result-meta-row result-meta-row--header"><span><span class="label">Forum:</span> <span class="value">${esc(topic.sourceForum)}</span></span></div>` : ""}
             <div class="result-meta-row result-meta-row--details">
-              ${t.starring ? `<span><span class="label">Cast:</span> <span class="value">${renderCastLinks(t.starring)}</span></span>` : ""}
-              ${t.productionDate ? `<span><span class="label">Date:</span> <span class="value">${esc(t.productionDate)}</span></span>` : ""}
-              ${t.duration ? `<span><span class="label">Duration:</span> <span class="value">${esc(t.duration)}</span></span>` : ""}
-              ${t.size ? `<span><span class="label">Size:</span> <span class="value">${esc(t.size)}</span></span>` : ""}
+              ${topic.starring ? `<span><span class="label">Cast:</span> <span class="value">${renderCastLinks(topic.starring)}</span></span>` : ""}
+              ${topic.productionDate ? `<span><span class="label">Date:</span> <span class="value">${esc(topic.productionDate)}</span></span>` : ""}
+              ${topic.duration ? `<span><span class="label">Duration:</span> <span class="value">${esc(topic.duration)}</span></span>` : ""}
+              ${topic.size ? `<span><span class="label">Size:</span> <span class="value">${esc(topic.size)}</span></span>` : ""}
             </div>
           </div>
-          ${t.comments ? `<div class="item-comments"><span class="label">Comment:</span> ${esc(t.comments)}</div>` : ""}
+          ${topic.comments ? `<div class="item-comments"><span class="label">Comment:</span> ${esc(topic.comments)}</div>` : ""}
           <div class="result-actions">
             <div class="result-actions-menu-wrapper">
               <button class="btn btn-small btn-menu-trigger" data-action="menu">⋯</button>
@@ -168,8 +168,8 @@ async function loadResults() {
                 <button class="popup-menu-item danger" data-action="delete">🗑 Delete</button>
               </div>
             </div>
-            ${t.torrentUrl ? `<a class="btn btn-small" href="${esc(t.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
-            ${t.postImage ? `<button class="btn btn-small" data-action="screens">🖼 Screens</button>` : ""}
+            ${topic.torrentUrl ? `<a class="btn btn-small" href="${esc(topic.torrentUrl)}" target="_blank">⬇ Torrent</a>` : ""}
+            ${topic.postImage ? `<button class="btn btn-small" data-action="screens">🖼 Screens</button>` : ""}
             <button class="btn btn-small btn-hide" data-action="toggle-hide">${isHidden ? t("👁 Show") : t("🙈 Hide")}</button>
           </div>
           <div class="item-tags" data-item-tags>
@@ -177,7 +177,7 @@ async function loadResults() {
             <button class="btn btn-small btn-tag-add" data-action="add-tag" title="Add or assign tag">+ Add tag</button>
           </div>
         </div>
-        <div class="rate-badge" title="Rate">${t.aiRating == null ? "–" : `${Math.round(t.aiRating)}%`}</div>
+        <div class="rate-badge" title="Rate">${topic.aiRating == null ? "–" : `${Math.round(topic.aiRating)}%`}</div>
       </div>`;
         },
       )
