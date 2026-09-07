@@ -255,6 +255,8 @@
       <div class="card">
         <div class="actions">
           <input type="text" id="actress-search-input" placeholder="Search actress..." style="flex: 1; max-width: 400px" />
+          <label class="actress-group-toggle"><input type="checkbox" id="actress-grouped-toggle" /> Grouped</label>
+          <button id="btn-new-actress-group" class="btn btn-secondary" type="button">➕ New group</button>
           <button id="btn-new-actress" class="btn btn-primary">➕ New actress</button>
           <span id="actress-count" class="status-msg"></span>
         </div>
@@ -487,6 +489,27 @@
           <button class="btn btn-small" id="actress-cancel" type="button">Cancel</button>
           <button class="btn btn-primary" id="actress-save" type="button">💾 Save</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actress: Group Name Modal -->
+  <div id="actress-group-modal" class="modal-overlay" hidden>
+    <div class="modal-content" style="max-width: 420px">
+      <div class="modal-header">
+        <span id="actress-group-modal-title" class="modal-title">➕ New group</span>
+        <button id="actress-group-modal-close" class="btn btn-small modal-close-btn" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label for="actress-group-name">Group name</label>
+          <input type="text" id="actress-group-name" autocomplete="off" />
+        </div>
+        <div id="actress-group-modal-status" class="status-msg"></div>
+      </div>
+      <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;padding:0.75rem 1rem;border-top:1px solid var(--border)">
+        <button class="btn btn-small" id="actress-group-cancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="actress-group-save" type="button">💾 Save</button>
       </div>
     </div>
   </div>

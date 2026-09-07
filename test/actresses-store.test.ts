@@ -40,6 +40,46 @@ describe("ActressStore", () => {
     });
   });
 
+  it("creates a default group first and sorts the remaining groups alphabetically", () => {
+    withStore((store) => {
+      const defaultGroup = store.getGroups()[0]!;
+      assert.equal(defaultGroup.isDefault, true);
+      assert.equal(defaultGroup.name, "Default");
+      store.insertGroup("zeta");
+      const alpha = store.insertGroup("Alpha");
+      assert.equal(store.updateGroup(alpha.id, "A-list"), true);
+      assert.deepEqual(store.getGroups().map((group) => group.name), ["Default", "A-list", "zeta"]);
+    });
+  });
+
+  it("assigns actresses to groups and moves them to the default group when a group is deleted", () => {
+    withStore((store) => {
+      const group = store.insertGroup("Favorites");
+      const actress = store.insert({ name: "Alice", groupId: group.id });
+      assert.equal(store.getById(actress.id)!.groupId, group.id);
+      assert.equal(store.deleteGroup(group.id), true);
+      assert.equal(store.getById(actress.id)!.groupId, store.getGroups()[0]!.id);
+      assert.equal(store.deleteGroup(store.getGroups()[0]!.id), false);
+    });
+  });
+
+  it("migrates existing actresses into the default group", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-actress-migrate-"));
+    const dbPath = path.join(dir, "data.db");
+    const Database = require("better-sqlite3");
+    const db = new Database(dbPath);
+    db.exec("CREATE TABLE actresses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, otherNames TEXT NOT NULL DEFAULT '[]', postImage TEXT, cachedImage TEXT, createdAt TEXT NOT NULL DEFAULT (datetime('now')))");
+    db.prepare("INSERT INTO actresses (name) VALUES (?)").run("Legacy");
+    db.close();
+    const store = new ActressStore(dbPath);
+    try {
+      assert.equal(store.getAll()[0]!.groupId, store.getGroups()[0]!.id);
+    } finally {
+      store.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("findByName() matches the primary name case-insensitively", () => {
     withStore((store) => {
       store.insert({ name: "Jane Doe" });

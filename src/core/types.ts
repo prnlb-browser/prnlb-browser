@@ -84,6 +84,14 @@ export interface Actress {
   postImage: string | null; // remote URL used to resolve the cached picture
   cachedImage: string | null; // local filename inside the actress images folder
   isFavorite: boolean;
+  groupId: number;
+  createdAt: string;
+}
+
+export interface ActressGroup {
+  id: number;
+  name: string;
+  isDefault: boolean;
   createdAt: string;
 }
 

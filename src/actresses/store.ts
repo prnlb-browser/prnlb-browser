@@ -1,10 +1,19 @@
 import Database from "better-sqlite3";
 import * as path from "node:path";
-import type { Actress } from "../core/types.js";
+import type { Actress, ActressGroup } from "../core/types.js";
 
 // No foreign key to `downloaded`/`topics` — actresses are a standalone
 // catalogue. Cast matching against other tables is done by name lookup at
 // the route layer, not by a DB relationship.
+const CREATE_GROUPS_TABLE = `
+  CREATE TABLE IF NOT EXISTS actressGroups (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    name      TEXT NOT NULL,
+    isDefault INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`;
+
 const CREATE_ACTRESSES_TABLE = `
   CREATE TABLE IF NOT EXISTS actresses (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -13,9 +22,12 @@ const CREATE_ACTRESSES_TABLE = `
     postImage   TEXT,
     cachedImage TEXT,
     isFavorite  INTEGER NOT NULL DEFAULT 0,
+    groupId     INTEGER,
     createdAt   TEXT NOT NULL DEFAULT (datetime('now'))
   )
 `;
+
+const DEFAULT_GROUP_NAME = "Default";
 
 function normalizeOtherNames(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
@@ -33,9 +45,18 @@ function normalizeOtherNames(input: unknown): string[] {
   return out;
 }
 
-type ActressRow = Omit<Actress, "otherNames" | "isFavorite"> & { otherNames: string | null; isFavorite: number };
+type ActressRow = Omit<Actress, "otherNames" | "isFavorite" | "groupId"> & {
+  otherNames: string | null;
+  isFavorite: number;
+  groupId: number | null;
+};
+type ActressGroupRow = Omit<ActressGroup, "isDefault"> & { isDefault: number };
 
-function decodeRow(row: ActressRow): Actress {
+function decodeGroup(row: ActressGroupRow): ActressGroup {
+  return { ...row, isDefault: !!row.isDefault };
+}
+
+function decodeRow(row: ActressRow, defaultGroupId: number): Actress {
   let otherNames: string[] = [];
   try {
     const parsed: unknown = JSON.parse(row.otherNames ?? "[]");
@@ -43,15 +64,21 @@ function decodeRow(row: ActressRow): Actress {
   } catch {
     // Malformed JSON falls back to no aliases.
   }
-  return { ...row, otherNames, isFavorite: !!row.isFavorite };
+  return { ...row, otherNames, isFavorite: !!row.isFavorite, groupId: row.groupId ?? defaultGroupId };
 }
 
 export class ActressStore {
   private db: Database.Database;
+  private defaultGroupId: number;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
+    this.db.exec(CREATE_GROUPS_TABLE);
+    this.db.prepare("INSERT INTO actressGroups (name, isDefault) SELECT ?, 1 WHERE NOT EXISTS (SELECT 1 FROM actressGroups WHERE isDefault = 1)").run(DEFAULT_GROUP_NAME);
+    const defaultGroup = this.db.prepare("SELECT id FROM actressGroups WHERE isDefault = 1 ORDER BY id LIMIT 1").get() as { id: number } | undefined;
+    if (!defaultGroup) throw new Error("Failed to initialize the default actress group");
+    this.defaultGroupId = defaultGroup.id;
     this.db.exec(CREATE_ACTRESSES_TABLE);
 
     // Idempotent column addition for older schemas (pre-favorites).
@@ -60,18 +87,68 @@ export class ActressStore {
     } catch {
       // Column already exists — safe to ignore.
     }
+
+    // Idempotent column addition for existing catalogues (pre-grouping).
+    try {
+      this.db.exec("ALTER TABLE actresses ADD COLUMN groupId INTEGER");
+    } catch {
+      // Column already exists — safe to ignore.
+    }
+    this.db.prepare("UPDATE actresses SET groupId = ? WHERE groupId IS NULL").run(this.defaultGroupId);
   }
 
   getAll(): Actress[] {
     const rows = this.db
       .prepare("SELECT * FROM actresses ORDER BY name COLLATE NOCASE ASC")
       .all() as ActressRow[];
-    return rows.map(decodeRow);
+    return rows.map((row) => decodeRow(row, this.defaultGroupId));
   }
 
   getById(id: number): Actress | undefined {
     const row = this.db.prepare("SELECT * FROM actresses WHERE id = ?").get(id) as ActressRow | undefined;
-    return row ? decodeRow(row) : undefined;
+    return row ? decodeRow(row, this.defaultGroupId) : undefined;
+  }
+
+  getGroups(): ActressGroup[] {
+    const rows = this.db
+      .prepare("SELECT * FROM actressGroups ORDER BY CASE WHEN isDefault = 1 THEN 0 ELSE 1 END, name COLLATE NOCASE ASC")
+      .all() as ActressGroupRow[];
+    return rows.map(decodeGroup);
+  }
+
+  getGroupById(id: number): ActressGroup | undefined {
+    const row = this.db.prepare("SELECT * FROM actressGroups WHERE id = ?").get(id) as ActressGroupRow | undefined;
+    return row ? decodeGroup(row) : undefined;
+  }
+
+  insertGroup(name: string): ActressGroup {
+    const normalizedName = name.trim();
+    if (!normalizedName) throw new RangeError("Group name is required");
+    const duplicate = this.db.prepare("SELECT id FROM actressGroups WHERE name = ? COLLATE NOCASE").get(normalizedName);
+    if (duplicate) throw new Error("A group with this name already exists");
+    const result = this.db.prepare("INSERT INTO actressGroups (name, isDefault) VALUES (?, 0)").run(normalizedName);
+    return this.getGroupById(Number(result.lastInsertRowid))!;
+  }
+
+  updateGroup(id: number, name: string): boolean {
+    const normalizedName = name.trim();
+    if (!normalizedName) throw new RangeError("Group name is required");
+    if (!this.getGroupById(id)) return false;
+    const duplicate = this.db
+      .prepare("SELECT id FROM actressGroups WHERE name = ? COLLATE NOCASE AND id != ?")
+      .get(normalizedName, id);
+    if (duplicate) throw new Error("A group with this name already exists");
+    return this.db.prepare("UPDATE actressGroups SET name = ? WHERE id = ?").run(normalizedName, id).changes > 0;
+  }
+
+  deleteGroup(id: number): boolean {
+    const group = this.getGroupById(id);
+    if (!group || group.isDefault) return false;
+    const transaction = this.db.transaction(() => {
+      this.db.prepare("UPDATE actresses SET groupId = ? WHERE groupId = ?").run(this.defaultGroupId, id);
+      return this.db.prepare("DELETE FROM actressGroups WHERE id = ?").run(id).changes > 0;
+    });
+    return transaction();
   }
 
   // Case-insensitive match against the primary name or any alias — an
@@ -81,17 +158,19 @@ export class ActressStore {
     if (!needle) return undefined;
     const rows = this.db.prepare("SELECT * FROM actresses").all() as ActressRow[];
     for (const row of rows) {
-      const actress = decodeRow(row);
+      const actress = decodeRow(row, this.defaultGroupId);
       if (actress.name.toLowerCase() === needle) return actress;
       if (actress.otherNames.some((n) => n.toLowerCase() === needle)) return actress;
     }
     return undefined;
   }
 
-  insert(item: { name: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; isFavorite?: boolean }): Actress {
+  insert(item: { name: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; isFavorite?: boolean; groupId?: number }): Actress {
+    const groupId = item.groupId ?? this.defaultGroupId;
+    if (!this.getGroupById(groupId)) throw new Error("Group not found");
     const stmt = this.db.prepare(`
-      INSERT INTO actresses (name, otherNames, postImage, cachedImage, isFavorite)
-      VALUES (@name, @otherNames, @postImage, @cachedImage, @isFavorite)
+      INSERT INTO actresses (name, otherNames, postImage, cachedImage, isFavorite, groupId)
+      VALUES (@name, @otherNames, @postImage, @cachedImage, @isFavorite, @groupId)
     `);
     const result = stmt.run({
       name: item.name.trim(),
@@ -99,13 +178,14 @@ export class ActressStore {
       postImage: item.postImage ?? null,
       cachedImage: item.cachedImage ?? null,
       isFavorite: item.isFavorite ? 1 : 0,
+      groupId,
     });
     return this.getById(Number(result.lastInsertRowid))!;
   }
 
   updateItem(
     id: number,
-    fields: { name?: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; isFavorite?: boolean },
+    fields: { name?: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; isFavorite?: boolean; groupId?: number },
   ): boolean {
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -128,6 +208,11 @@ export class ActressStore {
     if ("isFavorite" in fields) {
       sets.push("isFavorite = ?");
       values.push(fields.isFavorite ? 1 : 0);
+    }
+    if ("groupId" in fields) {
+      if (!this.getGroupById(fields.groupId!)) throw new Error("Group not found");
+      sets.push("groupId = ?");
+      values.push(fields.groupId);
     }
     if (sets.length === 0) return false;
     values.push(id);

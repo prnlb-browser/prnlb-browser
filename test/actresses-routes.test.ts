@@ -40,10 +40,29 @@ describe("actress routes", () => {
     userDataDir = dir;
     store = new ActressStore(path.join(dir, "data.db"));
 
+    // GET /api/actresses/groups — the default group is always available.
+    {
+      const { ctx, captured } = makeCtx("GET", "/api/actresses/groups");
+      const handled = await handleActressRoutes(ctx as never);
+      assert.equal(handled, true);
+      const body = JSON.parse(captured.body as string);
+      assert.equal(body.length, 1);
+      assert.equal(body[0].isDefault, true);
+    }
+
+    // Create a group, assign the actress to it, then delete it.
+    let groupId: number;
+    {
+      const { ctx, captured } = makeCtx("POST", "/api/actresses/groups", { name: "Favorites" });
+      await handleActressRoutes(ctx as never);
+      assert.equal(captured.status, 201);
+      groupId = JSON.parse(captured.body as string).id;
+    }
+
     // POST /api/actresses — create.
     let createdId: number;
     {
-      const { ctx, captured } = makeCtx("POST", "/api/actresses", { name: "Jane Doe", otherNames: ["JD", "Janie"] });
+      const { ctx, captured } = makeCtx("POST", "/api/actresses", { name: "Jane Doe", otherNames: ["JD", "Janie"], groupId });
       const handled = await handleActressRoutes(ctx as never);
       assert.equal(handled, true);
       assert.equal(captured.status, 201);
@@ -102,6 +121,12 @@ describe("actress routes", () => {
       assert.deepEqual(body.otherNames, ["JD"]);
     }
 
+    {
+      const { ctx, captured } = makeCtx("PATCH", "/api/actresses/item", { id: createdId!, groupId: groupId });
+      await handleActressRoutes(ctx as never);
+      assert.equal(JSON.parse(captured.body as string).groupId, groupId);
+    }
+
     // PATCH on a non-existent id — 404.
     {
       const { ctx, captured } = makeCtx("PATCH", "/api/actresses/item", { id: 999999, name: "x" });
@@ -130,6 +155,14 @@ describe("actress routes", () => {
       const { ctx, captured } = makeCtx("PATCH", "/api/actresses/item/favorite", { id: 999999 });
       await handleActressRoutes(ctx as never);
       assert.equal(captured.status, 404);
+    }
+
+    {
+      const { ctx, captured } = makeCtx("DELETE", `/api/actresses/groups?id=${groupId}`);
+      await handleActressRoutes(ctx as never);
+      assert.equal(captured.status, 200);
+      assert.equal(JSON.parse(captured.body as string).deleted, true);
+      assert.equal(store.getById(createdId!)!.groupId, store.getGroups()[0].id);
     }
 
     // DELETE /api/actresses/item — removes the row.

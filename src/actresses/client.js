@@ -4,8 +4,22 @@ const actressContainer = document.getElementById("actress-container");
 const actressCountEl = document.getElementById("actress-count");
 const actressSearchInput = document.getElementById("actress-search-input");
 const btnNewActress = document.getElementById("btn-new-actress");
+const actressGroupedToggle = document.getElementById("actress-grouped-toggle");
+const btnNewActressGroup = document.getElementById("btn-new-actress-group");
+const actressGroupModal = document.getElementById("actress-group-modal");
+const actressGroupModalTitle = document.getElementById("actress-group-modal-title");
+const actressGroupModalClose = document.getElementById("actress-group-modal-close");
+const actressGroupNameInput = document.getElementById("actress-group-name");
+const actressGroupModalStatus = document.getElementById("actress-group-modal-status");
+const actressGroupCancelBtn = document.getElementById("actress-group-cancel");
+const actressGroupSaveBtn = document.getElementById("actress-group-save");
 
 let actressItems = []; // cached list of all actresses
+let actressGroups = [];
+let actressGroupedView = window.localStorage.getItem("prnlb-actress-grouped") === "true";
+let draggedActressId = null;
+let suppressNextActressClick = false;
+let actressGroupModalId = null;
 
 // The cached image filename is a hash of the actress id, not the image
 // content, so it stays identical across a lookup/edit that swaps in a
@@ -23,9 +37,11 @@ function buildActressImageSrc(cachedFileName, id) {
 
 async function loadActresses() {
   try {
-    const res = await fetch("/api/actresses");
-    if (!res.ok) return;
-    actressItems = await res.json();
+    const [actressRes, groupRes] = await Promise.all([fetch("/api/actresses"), fetch("/api/actresses/groups")]);
+    if (!actressRes.ok || !groupRes.ok) return;
+    actressItems = await actressRes.json();
+    actressGroups = await groupRes.json();
+    actressGroupedToggle.checked = actressGroupedView;
     renderActressTiles();
     populateActressFilterOptions();
   } catch (err) {
@@ -33,31 +49,15 @@ async function loadActresses() {
   }
 }
 
-function renderActressTiles() {
+function actressMatchesSearch(actress) {
   const q = actressSearchInput ? actressSearchInput.value.trim().toLowerCase() : "";
-  let visible = actressItems;
-  if (q) {
-    visible = visible.filter(
-      (a) => a.name.toLowerCase().includes(q) || (a.otherNames || []).some((n) => n.toLowerCase().includes(q)),
-    );
-  }
+  return !q || actress.name.toLowerCase().includes(q) || (actress.otherNames || []).some((n) => n.toLowerCase().includes(q));
+}
 
-  actressCountEl.textContent = visible.length ? t("{count} actress(es)", { count: visible.length }) : "";
-
-  if (actressItems.length === 0) {
-    actressContainer.innerHTML = `<div class="empty-state">${esc(t('No actresses yet. Click "New actress" to add one.'))}</div>`;
-    return;
-  }
-  if (visible.length === 0) {
-    actressContainer.innerHTML = `<div class="empty-state">${esc(t("No actresses match the current search."))}</div>`;
-    return;
-  }
-
-  actressContainer.innerHTML = visible
-    .map((a) => {
-      const src = buildActressImageSrc(a.cachedImage, a.id);
-      return `
-      <div class="actress-tile" data-id="${a.id}">
+function renderActressCard(a) {
+  const src = buildActressImageSrc(a.cachedImage, a.id);
+  return `
+      <div class="actress-tile" data-id="${a.id}" draggable="${actressGroupedView}">
         <div class="actress-tile-thumb-wrap">
           ${src
             ? `<img class="actress-tile-thumb" src="${src}" alt="" loading="lazy" onerror="this.style.display='none'" />`
@@ -71,6 +71,43 @@ function renderActressTiles() {
         </div>
         <div class="actress-tile-name">${esc(a.name)}</div>
       </div>`;
+}
+
+function renderActressTiles() {
+  const visible = actressItems.filter(actressMatchesSearch);
+
+  actressCountEl.textContent = visible.length ? t("{count} actress(es)", { count: visible.length }) : "";
+
+  if (actressItems.length === 0 && !actressGroupedView) {
+    actressContainer.innerHTML = `<div class="empty-state">${esc(t('No actresses yet. Click "New actress" to add one.'))}</div>`;
+    return;
+  }
+  if (visible.length === 0 && !actressGroupedView) {
+    actressContainer.innerHTML = `<div class="empty-state">${esc(t("No actresses match the current search."))}</div>`;
+    return;
+  }
+
+  if (!actressGroupedView) {
+    actressContainer.className = "actress-grid";
+    actressContainer.innerHTML = visible.map(renderActressCard).join("");
+    return;
+  }
+
+  actressContainer.className = "actress-groups";
+  actressContainer.innerHTML = actressGroups
+    .map((group) => {
+      const groupActresses = visible.filter((actress) => actress.groupId === group.id);
+      const groupTotal = actressItems.filter((actress) => actress.groupId === group.id).length;
+      const emptyText = groupTotal === 0 ? t("Drag actresses here") : t("No actresses match the current search in this group.");
+      return `<section class="actress-group-section" data-group-id="${group.id}">
+        <div class="actress-group-header">
+          <div class="actress-group-title">${esc(group.name)}</div>
+          <span class="actress-group-count">${groupTotal}</span>
+          <button class="btn btn-small" data-action="edit-group" data-group-id="${group.id}" title="${t("Rename group")}" type="button">✏️</button>
+          ${group.isDefault ? "" : `<button class="btn btn-small btn-danger" data-action="delete-group" data-group-id="${group.id}" title="${t("Delete group")}" type="button">🗑</button>`}
+        </div>
+        ${groupActresses.length ? `<div class="actress-grid">${groupActresses.map(renderActressCard).join("")}</div>` : `<div class="actress-group-empty">${esc(emptyText)}</div>`}
+      </section>`;
     })
     .join("");
 }
@@ -92,7 +129,133 @@ async function toggleActressFavorite(id) {
   }
 }
 
+async function createActressGroup() {
+  openActressGroupModal(null);
+}
+
+function openActressGroupModal(group) {
+  actressGroupModalId = group ? group.id : null;
+  actressGroupModalTitle.textContent = group ? t("Rename group") : t("➕ New group");
+  actressGroupNameInput.value = group ? group.name : "";
+  actressGroupModalStatus.textContent = "";
+  actressGroupModalStatus.className = "status-msg";
+  actressGroupModal.hidden = false;
+  setTimeout(() => actressGroupNameInput.focus(), 0);
+}
+
+function closeActressGroupModal() {
+  actressGroupModal.hidden = true;
+  actressGroupModalId = null;
+}
+
+async function saveActressGroup() {
+  const name = actressGroupNameInput.value.trim();
+  if (!name) {
+    actressGroupModalStatus.textContent = t("Group name is required");
+    actressGroupModalStatus.className = "status-msg error";
+    actressGroupNameInput.focus();
+    return;
+  }
+  actressGroupSaveBtn.disabled = true;
+  actressGroupCancelBtn.disabled = true;
+  actressGroupModalStatus.textContent = t("Saving...");
+  actressGroupModalStatus.className = "status-msg";
+  try {
+    const res = await fetch("/api/actresses/groups", {
+      method: actressGroupModalId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(actressGroupModalId ? { id: actressGroupModalId, name } : { name }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to save group");
+    }
+    await loadActresses();
+    closeActressGroupModal();
+  } catch (err) {
+    actressGroupModalStatus.textContent = `Error: ${err.message}`;
+    actressGroupModalStatus.className = "status-msg error";
+  } finally {
+    actressGroupSaveBtn.disabled = false;
+    actressGroupCancelBtn.disabled = false;
+  }
+}
+
+function renameActressGroup(id) {
+  const group = actressGroups.find((candidate) => candidate.id === id);
+  if (!group) return;
+  openActressGroupModal(group);
+}
+
+async function deleteActressGroup(id) {
+  const group = actressGroups.find((candidate) => candidate.id === id);
+  if (!group || group.isDefault) return;
+  if (!confirm(t("Delete this group? Actresses in it will be moved to the default group."))) return;
+  try {
+    const res = await fetch(`/api/actresses/groups?id=${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to delete group");
+    }
+    await loadActresses();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function moveActressToGroup(id, groupId) {
+  const actress = actressItems.find((item) => item.id === id);
+  if (!actress || actress.groupId === groupId) return;
+  try {
+    const res = await fetch("/api/actresses/item", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, groupId }),
+    });
+    if (!res.ok) throw new Error("Failed to move actress");
+    actress.groupId = groupId;
+    renderActressTiles();
+  } catch (err) {
+    console.error("Failed to move actress:", err);
+  }
+}
+
+btnNewActressGroup.addEventListener("click", createActressGroup);
+actressGroupSaveBtn.addEventListener("click", saveActressGroup);
+actressGroupCancelBtn.addEventListener("click", closeActressGroupModal);
+actressGroupModalClose.addEventListener("click", closeActressGroupModal);
+actressGroupModal.addEventListener("click", (e) => {
+  if (e.target === actressGroupModal) closeActressGroupModal();
+});
+actressGroupNameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    saveActressGroup();
+  }
+});
+actressGroupedToggle.addEventListener("change", () => {
+  actressGroupedView = actressGroupedToggle.checked;
+  window.localStorage.setItem("prnlb-actress-grouped", String(actressGroupedView));
+  renderActressTiles();
+});
+
 actressContainer.addEventListener("click", (e) => {
+  if (suppressNextActressClick) {
+    suppressNextActressClick = false;
+    return;
+  }
+  const editGroupBtn = e.target.closest("[data-action='edit-group']");
+  if (editGroupBtn) {
+    e.stopPropagation();
+    renameActressGroup(parseInt(editGroupBtn.dataset.groupId, 10));
+    return;
+  }
+  const deleteGroupBtn = e.target.closest("[data-action='delete-group']");
+  if (deleteGroupBtn) {
+    e.stopPropagation();
+    deleteActressGroup(parseInt(deleteGroupBtn.dataset.groupId, 10));
+    return;
+  }
   const favBtn = e.target.closest("[data-action='toggle-favorite']");
   if (favBtn) {
     e.stopPropagation();
@@ -116,6 +279,49 @@ actressContainer.addEventListener("click", (e) => {
   const id = parseInt(tile.dataset.id, 10);
   const actress = actressItems.find((a) => a.id === id);
   if (actress) openActressModal(actress);
+});
+
+actressContainer.addEventListener("dragstart", (e) => {
+  const tile = e.target.closest(".actress-tile[draggable='true']");
+  if (!tile) return;
+  draggedActressId = parseInt(tile.dataset.id, 10);
+  suppressNextActressClick = true;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", String(draggedActressId));
+  tile.classList.add("actress-tile--dragging");
+});
+
+actressContainer.addEventListener("dragend", (e) => {
+  const tile = e.target.closest(".actress-tile");
+  if (tile) tile.classList.remove("actress-tile--dragging");
+  actressContainer.querySelectorAll(".actress-group-section--drag-over").forEach((section) => section.classList.remove("actress-group-section--drag-over"));
+  draggedActressId = null;
+  setTimeout(() => { suppressNextActressClick = false; }, 0);
+});
+
+actressContainer.addEventListener("dragover", (e) => {
+  if (!actressGroupedView || draggedActressId === null) return;
+  const section = e.target.closest(".actress-group-section");
+  if (!section) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  section.classList.add("actress-group-section--drag-over");
+});
+
+actressContainer.addEventListener("dragleave", (e) => {
+  const section = e.target.closest(".actress-group-section");
+  if (section && !section.contains(e.relatedTarget)) section.classList.remove("actress-group-section--drag-over");
+});
+
+actressContainer.addEventListener("drop", (e) => {
+  if (!actressGroupedView) return;
+  const section = e.target.closest(".actress-group-section");
+  if (!section) return;
+  e.preventDefault();
+  section.classList.remove("actress-group-section--drag-over");
+  const id = draggedActressId ?? parseInt(e.dataTransfer.getData("text/plain"), 10);
+  const groupId = parseInt(section.dataset.groupId, 10);
+  if (Number.isInteger(id) && Number.isInteger(groupId)) moveActressToGroup(id, groupId);
 });
 
 if (actressSearchInput) {

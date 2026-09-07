@@ -34,6 +34,66 @@ function actressImagesDir(app: AppContext): string {
 export const handleActressRoutes: RouteHandler = async ({ req, res, url, method, app }) => {
   const store = app.getActressStore();
 
+  if (url.pathname === "/api/actresses/groups" && method === "GET") {
+    json(res, store.getGroups());
+    return true;
+  }
+
+  if (url.pathname === "/api/actresses/groups" && method === "POST") {
+    const body = await readJson<{ name?: string }>(req);
+    const name = body.name?.trim();
+    if (!name) {
+      json(res, { error: "name is required" }, 400);
+      return true;
+    }
+    try {
+      json(res, store.insertGroup(name), 201);
+    } catch (err) {
+      json(res, { error: (err as Error).message }, 409);
+    }
+    return true;
+  }
+
+  if (url.pathname === "/api/actresses/groups" && method === "PATCH") {
+    const body = await readJson<{ id?: number; name?: string }>(req);
+    const name = body.name?.trim();
+    if (!body.id || !name) {
+      json(res, { error: "id and name are required" }, 400);
+      return true;
+    }
+    if (!store.getGroupById(body.id)) {
+      json(res, { error: "Group not found" }, 404);
+      return true;
+    }
+    try {
+      store.updateGroup(body.id, name);
+      json(res, store.getGroupById(body.id));
+    } catch (err) {
+      json(res, { error: (err as Error).message }, 409);
+    }
+    return true;
+  }
+
+  if (url.pathname === "/api/actresses/groups" && method === "DELETE") {
+    const id = Number.parseInt(url.searchParams.get("id") ?? "", 10);
+    if (Number.isNaN(id)) {
+      json(res, { error: "id query parameter is required" }, 400);
+      return true;
+    }
+    const group = store.getGroupById(id);
+    if (!group) {
+      json(res, { error: "Group not found" }, 404);
+      return true;
+    }
+    if (group.isDefault) {
+      json(res, { error: "The default group cannot be deleted" }, 400);
+      return true;
+    }
+    store.deleteGroup(id);
+    json(res, { deleted: true, id });
+    return true;
+  }
+
   if (url.pathname === "/api/actresses" && method === "GET") {
     json(res, store.getAll());
     return true;
@@ -49,14 +109,18 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
   }
 
   if (url.pathname === "/api/actresses" && method === "POST") {
-    const body = await readJson<{ name?: string; otherNames?: unknown; postImageUrl?: string | null }>(req);
+    const body = await readJson<{ name?: string; otherNames?: unknown; postImageUrl?: string | null; groupId?: number }>(req);
     const name = body.name?.trim();
     if (!name) {
       json(res, { error: "name is required" }, 400);
       return true;
     }
 
-    const created = store.insert({ name, otherNames: body.otherNames, postImage: null, cachedImage: null });
+    if (body.groupId !== undefined && (!Number.isInteger(body.groupId) || !store.getGroupById(body.groupId))) {
+      json(res, { error: "Group not found" }, 404);
+      return true;
+    }
+    const created = store.insert({ name, otherNames: body.otherNames, postImage: null, cachedImage: null, groupId: body.groupId });
 
     const rawUrl = body.postImageUrl?.trim();
     if (rawUrl) {
@@ -75,6 +139,7 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
       name?: string;
       otherNames?: unknown;
       postImageUrl?: string | null;
+      groupId?: number;
     }>(req);
     const { id } = body;
     if (!id) {
@@ -87,9 +152,17 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
       return true;
     }
 
-    const fields: { name?: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null } = {};
+    const fields: { name?: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; groupId?: number } = {};
     if ("name" in body && body.name?.trim()) fields.name = body.name.trim();
     if ("otherNames" in body) fields.otherNames = body.otherNames;
+
+    if ("groupId" in body) {
+      if (!Number.isInteger(body.groupId) || !store.getGroupById(body.groupId!)) {
+        json(res, { error: "Group not found" }, 404);
+        return true;
+      }
+      fields.groupId = body.groupId;
+    }
 
     if ("postImageUrl" in body) {
       const rawUrl = body.postImageUrl?.trim() ? body.postImageUrl.trim() : null;
