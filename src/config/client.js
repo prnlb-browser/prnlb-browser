@@ -1,7 +1,7 @@
 const forumsList = document.getElementById("forums-list");
 const btnAddForum = document.getElementById("btn-add-forum");
 const btnSaveConfig = document.getElementById("btn-save-config");
-const btnClearDb = document.getElementById("btn-clear-db");
+const btnClearHiddenResults = document.getElementById("btn-clear-hidden-results");
 const btnClearTurboImageHostCookies = document.getElementById("btn-clear-turboimagehost-cookies");
 const configStatus = document.getElementById("config-status");
 
@@ -95,11 +95,11 @@ btnSaveConfig.addEventListener("click", async () => {
   }
 });
 
-btnClearDb.addEventListener("click", async () => {
-  if (!confirm(t("Are you sure you want to delete ALL topics from the database? This cannot be undone."))) return;
+btnClearHiddenResults.addEventListener("click", async () => {
+  if (!confirm(t("Are you sure you want to delete ALL hidden topics from the database? This cannot be undone."))) return;
   try {
-    const res = await fetch("/api/results", { method: "DELETE" });
-    if (!res.ok) throw new Error("Failed to clear database");
+    const res = await fetch("/api/results/hidden", { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to clear hidden results");
     const data = await res.json();
     showStatus(configStatus, data.message, false);
   } catch (err) {

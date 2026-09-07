@@ -131,6 +131,10 @@ export class TopicStore {
     return this.db.prepare("DELETE FROM topics").run().changes;
   }
 
+  clearHidden(): number {
+    return this.db.prepare("DELETE FROM topics WHERE hidden = 1").run().changes;
+  }
+
   deleteByUrl(topicUrl: string): boolean {
     return this.db.prepare("DELETE FROM topics WHERE topicUrl = ?").run(topicUrl).changes > 0;
   }

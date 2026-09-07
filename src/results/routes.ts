@@ -127,6 +127,11 @@ export const handleResultsRoutes: RouteHandler = async ({ req, res, url, method,
     return true;
   }
 
+  if (url.pathname === "/api/results/hidden" && method === "DELETE") {
+    json(res, { message: `Deleted ${store.clearHidden()} hidden topics` });
+    return true;
+  }
+
   if (url.pathname === "/api/results" && method === "DELETE") {
     json(res, { message: `Deleted ${store.clearAll()} topics` });
     return true;

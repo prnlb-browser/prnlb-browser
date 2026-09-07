@@ -129,6 +129,31 @@ describe("results tag routes", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  it("deletes only hidden topics through the hidden-results route", async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-hidden-route-"));
+    dbPath = path.join(dir, "data.db");
+    store = new TopicStore(dbPath);
+    const app = { getTopicStore: () => store, loadConfig: () => ({}) };
+    store.insert({
+      topicUrl: "visible", title: "Visible", postImage: null, starring: null, productionDate: null,
+      duration: null, size: null, torrentUrl: null, sourceForum: null, hidden: 0,
+    });
+    store.insert({
+      topicUrl: "hidden", title: "Hidden", postImage: null, starring: null, productionDate: null,
+      duration: null, size: null, torrentUrl: null, sourceForum: null, hidden: 1,
+    });
+
+    const { ctx, captured } = makeCtx("DELETE", "/api/results/hidden", undefined, app);
+    assert.equal(await handleResultsRoutes(ctx), true);
+    assert.equal(captured.status, 200);
+    assert.deepEqual(JSON.parse(captured.body!), { message: "Deleted 1 hidden topics" });
+    assert.ok(store.getByUrl("visible"));
+    assert.equal(store.getByUrl("hidden"), undefined);
+
+    store.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   it("merges known tags from both the topics and downloaded stores", async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-tag-merge-"));
     dbPath = path.join(dir, "data.db");

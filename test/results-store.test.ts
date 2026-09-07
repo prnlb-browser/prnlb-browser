@@ -197,6 +197,23 @@ describe("TopicStore visibility", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("clearHidden() deletes hidden topics without deleting visible topics", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-results-store-"));
+    const dbPath = path.join(dir, "data.db");
+    try {
+      const store = new TopicStore(dbPath);
+      store.insert(baseTopic("visible", "Visible"));
+      store.insert({ ...baseTopic("hidden", "Hidden"), hidden: 1 });
+
+      assert.equal(store.clearHidden(), 1);
+      assert.ok(store.getByUrl("visible"));
+      assert.equal(store.getByUrl("hidden"), undefined);
+      store.close();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("TopicStore sort", () => {

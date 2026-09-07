@@ -141,7 +141,7 @@ const UI_TRANSLATIONS = {
     "⏳ Running...": "⏳ Выполняется...",
     "Config saved!": "Настройки сохранены!",
     "CSV exported!": "CSV экспортирован!",
-    "Are you sure you want to delete ALL topics from the database? This cannot be undone.": "Удалить ВСЕ темы из базы данных? Это действие нельзя отменить.",
+    "Are you sure you want to delete ALL hidden topics from the database? This cannot be undone.": "Удалить ВСЕ скрытые темы из базы данных? Это действие нельзя отменить.",
     "Clear TurboImageHost cookies, local storage, and cache? This closes any active verification window and cancels its current image resolution. Your app settings, Pornolab login, saved results, and screenshot cache will not be changed.": "Очистить cookies, локальное хранилище и кэш TurboImageHost? Все активные окна проверки будут закрыты, а текущие операции определения изображений отменены. Настройки приложения, вход в Pornolab, сохраненные результаты и кэш скриншотов не изменятся.",
     "No results yet. Run a crawl first.": "Результатов пока нет. Сначала запустите сканирование.",
     "No topics found.": "Темы не найдены.",
