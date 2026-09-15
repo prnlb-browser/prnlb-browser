@@ -72,6 +72,7 @@ async function createWindow(port: number): Promise<void> {
     minWidth: 900,
     minHeight: 600,
     title: "prnlb-browser",
+    icon: path.join(getPublicDir(), "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
