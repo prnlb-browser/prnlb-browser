@@ -4,6 +4,7 @@ import { json, readJson, startSse } from "../server/http.js";
 import { resolverRegistry } from "./registry.js";
 import { scrapeTopicImages } from "./topic-scraper.js";
 import { fetchImageBytes } from "./fetch-bytes.js";
+import { isImageBytes } from "./validation.js";
 import { readCachedScreenshot, resolveScreenshotCacheDir, writeCachedScreenshot } from "./screenshot-cache.js";
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
@@ -71,6 +72,7 @@ export const handleImageRoutes: RouteHandler = async ({ req, res, url, method, a
     const cacheKey = `${imageUrl}${ORIGINAL_VARIANT_SUFFIX}`;
 
     let bytes = cacheDir ? readCachedScreenshot(cacheDir, cacheKey) : null;
+    if (bytes && !isImageBytes(bytes)) bytes = null;
     if (!bytes) {
       bytes = await fetchImageBytes(imageUrl);
       if (!bytes) {

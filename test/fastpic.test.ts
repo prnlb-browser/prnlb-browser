@@ -73,15 +73,15 @@ describe("FastpicResolver", () => {
       assert.equal(result, "https://fastpic.org/view/127/2026/0704/_8f5089d7d56223811e37685269c0c15f.jpeg.html");
     });
 
-    it("builds view page URL from example 2 — thumbnail with hash segment, preserving .jpeg", () => {
+    it("builds view page URL from example 2 — thumbnail with hash segment, using the .jpg view variant", () => {
       const result = build(EXAMPLE2_IMG_SRC);
-      assert.equal(result, "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpeg.html");
+      assert.equal(result, "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpg.html");
     });
 
-    it("builds view page URL from a thumb URL without hash segment, preserving .jpeg", () => {
+    it("builds view page URL from a thumb URL without hash segment, using the .jpg view variant", () => {
       const url = "https://i5.fastpic.org/thumb/2023/1001/abcdef1234567890abcdef1234567890.jpeg";
       const result = build(url);
-      assert.equal(result, "https://fastpic.org/view/5/2023/1001/abcdef1234567890abcdef1234567890.jpeg.html");
+      assert.equal(result, "https://fastpic.org/view/5/2023/1001/abcdef1234567890abcdef1234567890.jpg.html");
     });
 
     it("preserves a .jpg extension unchanged", () => {
@@ -175,7 +175,7 @@ describe("FastpicResolver", () => {
     });
 
     it("resolves example 2 — thumbnail URL builds view page and fetches", async () => {
-      const viewPageUrl = "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpeg.html";
+      const viewPageUrl = "https://fastpic.org/view/123/2024/0613/_08a2baa39669a9d3f6463665cf2c74a4.jpg.html";
       const bigImageUrl = "https://i123.fastpic.org/big/2024/0613/a4/_08a2baa39669a9d3f6463665cf2c74a4.jpg?md5=ghi789&expires=1720000002";
 
       const mockHtml = `<html><body>

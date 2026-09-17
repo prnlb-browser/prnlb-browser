@@ -1,7 +1,12 @@
-import * as https from "node:https";
-import * as http from "node:http";
 import { URL } from "node:url";
+import type { Page } from "playwright-core";
 import type { ImageHostResolver } from "./types.js";
+import { launchChromium } from "../browser.js";
+
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const POLL_INTERVAL_MS = 250;
+const IMAGE_WAIT_MS = 20_000;
 
 /**
  * Resolver for images hosted on fastpic.org.
@@ -32,15 +37,18 @@ export class FastpicResolver implements ImageHostResolver {
     }
   }
 
-  async resolve(url: string): Promise<string | null> {
+  async resolve(url: string, signal?: AbortSignal): Promise<string | null> {
     try {
+      if (signal?.aborted) return null;
       const pageUrl = this.buildViewPageUrl(url);
       if (!pageUrl) return null;
 
-      const html = await this.fetchPage(pageUrl);
+      const html = await this.fetchPage(pageUrl, signal);
       return this.extractBigImageUrl(html);
     } catch (err) {
-      console.error(`FastpicResolver: Failed to resolve ${url}:`, (err as Error).message);
+      if (!signal?.aborted) {
+        console.error(`FastpicResolver: Failed to resolve ${url}:`, (err as Error).message);
+      }
       return null;
     }
   }
@@ -67,7 +75,10 @@ export class FastpicResolver implements ImageHostResolver {
       const fileName = parts.at(-1)!;
       const extMatch = fileName.match(/\.(jpe?g|png|gif|webp|bmp)$/i);
       if (!extMatch) return null;
-      const ext = extMatch[1]!;
+      // Fastpic's thumbnail URLs commonly use .jpeg while the corresponding
+      // view page is named .jpg. The live Fastpic endpoint returns 404 for the
+      // .jpeg view variant, even though the thumbnail itself is valid.
+      const ext = parts[0] === "thumb" ? "jpg" : extMatch[1]!;
       const stem = fileName.slice(0, -extMatch[0].length);
       if (!year || !date || !stem) return null;
 
@@ -111,51 +122,105 @@ export class FastpicResolver implements ImageHostResolver {
   }
 
   /**
-   * Fetch a page's HTML content, following redirects (302, 301, etc.).
+   * Load the view page in Chromium and follow Fastpic's interstitial.
+   *
+   * Fastpic now returns a JavaScript interstitial for unsigned /big URLs.
+   * The interstitial contains a generated link to the same view page with a
+   * short-lived query token; only that tokenized page contains the signed
+   * full-size image URL.
    */
-  private fetchPage(url: string, maxRedirects = 5): Promise<string> {
-    return new Promise((resolve, reject) => {
-      if (maxRedirects <= 0) {
-        reject(new Error("Too many redirects"));
-        return;
+  private async fetchPage(url: string, signal?: AbortSignal): Promise<string> {
+    const browser = await launchChromium({ headless: true });
+    const context = await browser.newContext({ userAgent: USER_AGENT });
+    const page = await context.newPage();
+    const onAbort = () => {
+      void page.close().catch(() => {});
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    try {
+      this.throwIfAborted(signal);
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+      this.throwIfAborted(signal);
+
+      const continuationUrl = await this.findContinuationUrl(page, url);
+      if (continuationUrl && continuationUrl !== page.url()) {
+        await page.goto(continuationUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
       }
 
-      const parsedUrl = new URL(url);
-      const client = parsedUrl.protocol === "https:" ? https : http;
+      return await this.waitForImageHtml(page, signal);
+    } finally {
+      signal?.removeEventListener("abort", onAbort);
+      await browser.close();
+    }
+  }
 
-      const req = client.get(
-        url,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          },
-          timeout: 15_000,
-        },
-        (res) => {
-          // Follow redirects
-          const statusCode = res.statusCode ?? 0;
-          if ([301, 302, 303, 307, 308].includes(statusCode) && res.headers.location) {
-            const redirectUrl = new URL(res.headers.location, url).toString();
-            res.resume(); // drain the response body
-            this.fetchPage(redirectUrl, maxRedirects - 1).then(resolve, reject);
-            return;
-          }
+  private async findContinuationUrl(page: Page, baseUrl: string): Promise<string | null> {
+    const hrefs = await page.locator("a[href]").evaluateAll((elements) =>
+      elements
+        .map((element) => element.getAttribute("href"))
+        .filter((href): href is string => !!href),
+    );
 
-          const chunks: Buffer[] = [];
-          res.on("data", (chunk: Buffer) => chunks.push(chunk));
-          res.on("end", () => {
-            const html = Buffer.concat(chunks).toString("utf-8");
-            resolve(html);
-          });
-        },
-      );
+    for (const href of hrefs) {
+      try {
+        const candidate = new URL(href, baseUrl);
+        const hasToken = [...candidate.searchParams.keys()].some((key) => key !== "lang");
+        if (
+          candidate.hostname === "fastpic.org" &&
+          candidate.pathname.startsWith("/view/") &&
+          hasToken
+        ) {
+          return candidate.toString();
+        }
+      } catch {
+        // Ignore malformed or unrelated links from the interstitial.
+      }
+    }
+    return null;
+  }
 
-      req.on("error", reject);
-      req.on("timeout", () => {
-        req.destroy();
-        reject(new Error("Request timeout"));
-      });
+  private async waitForImageHtml(page: Page, signal?: AbortSignal): Promise<string> {
+    const deadline = Date.now() + IMAGE_WAIT_MS;
+    while (Date.now() < deadline) {
+      this.throwIfAborted(signal);
+      const html = await page.content();
+      if (this.extractBigImageUrl(html)) return html;
+      await this.sleep(POLL_INTERVAL_MS, signal);
+    }
+    return page.content();
+  }
+
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout>;
+      const cleanup = () => signal?.removeEventListener("abort", onAbort);
+      const onAbort = () => {
+        clearTimeout(timer);
+        cleanup();
+        reject(this.abortError());
+      };
+      timer = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, ms);
+      signal?.addEventListener("abort", onAbort, { once: true });
     });
+  }
+
+  private throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw this.abortError();
+  }
+
+  private abortError(): Error {
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
   }
 }
