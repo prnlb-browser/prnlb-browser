@@ -592,7 +592,6 @@ textarea { resize: vertical; min-height: 5rem; }
 
 .carousel-loading {
   color: var(--text-muted);
-  font-size: 0.9rem;
   text-align: center;
   padding: 2rem;
   display: flex;
@@ -601,23 +600,14 @@ textarea { resize: vertical; min-height: 5rem; }
   gap: 1rem;
 }
 
+.carousel-loading-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  opacity: 0.75;
+}
+
 .carousel-loading[hidden] {
   display: none;
-}
-
-.carousel-progress-bar-container {
-  width: 200px;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.carousel-progress-bar {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.3s ease;
 }
 
 .carousel-btn {
@@ -690,6 +680,32 @@ textarea { resize: vertical; min-height: 5rem; }
   padding: 0.5rem 1rem;
   border-top: 1px solid var(--border);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.carousel-resolution-status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.carousel-resolution-status.active::before {
+  content: "";
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-right: 0.35rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.1rem;
+  animation: carousel-resolution-spin 0.8s linear infinite;
+}
+
+@keyframes carousel-resolution-spin {
+  to { transform: rotate(360deg); }
 }
 
 .carousel-counter {

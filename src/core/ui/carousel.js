@@ -13,6 +13,7 @@ const carouselPrev = document.getElementById("carousel-prev");
 const carouselNext = document.getElementById("carousel-next");
 const carouselCounter = document.getElementById("carousel-counter");
 const carouselThumbnails = document.getElementById("carousel-thumbnails");
+const carouselResolutionStatus = document.getElementById("carousel-resolution-status");
 
 modalClose.addEventListener("click", closeCarousel);
 modalOverlay.addEventListener("click", (e) => {
@@ -52,15 +53,10 @@ async function openImageCarousel(topicUrl, title) {
   carouselLoading.hidden = false;
   carouselThumbnails.innerHTML = "";
   carouselCounter.textContent = "";
+  carouselResolutionStatus.textContent = "⏳ Scraping topic images...";
+  carouselResolutionStatus.classList.add("active");
   carouselPrev.disabled = true;
   carouselNext.disabled = true;
-
-  const progressText = document.getElementById("carousel-progress-text");
-  const progressBarContainer = document.getElementById("carousel-progress-bar-container");
-  const progressBar = document.getElementById("carousel-progress-bar");
-  progressText.textContent = t("Scraping topic images...");
-  progressBar.style.width = "0%";
-  progressBarContainer.hidden = true;
 
   function processLines(text) {
     for (const line of text.split("\n")) {
@@ -68,27 +64,29 @@ async function openImageCarousel(topicUrl, title) {
       const data = JSON.parse(line.slice(6));
 
       if (data.phase === "scraping") {
-        progressText.textContent = data.message;
-        progressBarContainer.hidden = true;
+        carouselResolutionStatus.textContent = `⏳ ${data.message}`;
       } else if (data.phase === "resolving") {
-        progressText.textContent = data.message;
-        progressBarContainer.hidden = false;
-        const pct = Math.round((data.current / data.total) * 100);
-        progressBar.style.width = pct + "%";
+        const current = Number(data.current) || 0;
+        const total = Number(data.total) || 0;
+        carouselResolutionStatus.textContent = `⏳ ${current}/${total} resolved`;
+        carouselResolutionStatus.classList.add("active");
+        if (data.image) appendCarouselImage(data.image);
       } else if (data.phase === "done") {
-        if (!data.images || data.images.length === 0) {
-        progressText.textContent = t("No images found from supported hosts.");
-          progressBarContainer.hidden = true;
+        for (const image of data.images || []) appendCarouselImage(image);
+        if (carouselImages.length === 0) {
+          carouselResolutionStatus.textContent = t("No images found from supported hosts.");
+          carouselResolutionStatus.classList.remove("active");
+          carouselLoading.hidden = true;
           return true;
         }
-        carouselImages = data.images;
-        renderCarouselThumbnails();
-        showCarouselImage(0);
         carouselLoading.hidden = true;
+        carouselResolutionStatus.textContent = `✓ ${carouselImages.length}/${data.total || carouselImages.length} resolved`;
+        carouselResolutionStatus.classList.remove("active");
         return true;
       } else if (data.phase === "error") {
-        progressText.textContent = `Error: ${data.message}`;
-        progressBarContainer.hidden = true;
+        carouselResolutionStatus.textContent = `⚠ ${data.message}`;
+        carouselResolutionStatus.classList.remove("active");
+        carouselLoading.hidden = true;
         return true;
       }
     }
@@ -124,7 +122,9 @@ async function openImageCarousel(topicUrl, title) {
     }
   } catch (err) {
     if (err.name !== "AbortError" && !modalOverlay.hidden) {
-      progressText.textContent = `Error: ${err.message}`;
+      carouselResolutionStatus.textContent = `⚠ ${err.message}`;
+      carouselResolutionStatus.classList.remove("active");
+      carouselLoading.hidden = true;
     }
   } finally {
     if (carouselRequestController === requestController) {
@@ -137,13 +137,47 @@ function renderCarouselThumbnails() {
   carouselThumbnails.innerHTML = "";
   carouselImages.forEach((img, i) => {
     const thumb = document.createElement("img");
-    thumb.className = "carousel-thumb" + (i === 0 ? " active" : "");
+    thumb.className = "carousel-thumb" + (i === carouselIndex ? " active" : "");
     // Use thumbnailUrl (the <img src> from the post) for carousel thumbnails
     thumb.src = img.thumbnailUrl || img.originalUrl;
     thumb.alt = `Thumb ${i + 1}`;
     thumb.loading = "lazy";
     thumb.addEventListener("click", () => showCarouselImage(i));
     carouselThumbnails.appendChild(thumb);
+  });
+}
+
+function appendCarouselImage(image) {
+  if (!image?.resolvedUrl) return;
+  if (carouselImages.some((existing) => existing.originalUrl === image.originalUrl)) return;
+
+  const wasEmpty = carouselImages.length === 0;
+  carouselImages.push(image);
+  renderCarouselThumbnails();
+
+  if (wasEmpty) {
+    showCarouselImage(0);
+    return;
+  }
+
+  updateCarouselNavigation();
+}
+
+function updateCarouselNavigation() {
+  if (carouselImages.length === 0) {
+    carouselCounter.textContent = "";
+    carouselPrev.disabled = true;
+    carouselNext.disabled = true;
+    return;
+  }
+
+  carouselCounter.textContent = `${carouselIndex + 1} / ${carouselImages.length}`;
+  carouselPrev.disabled = carouselIndex === 0;
+  carouselNext.disabled = carouselIndex === carouselImages.length - 1;
+
+  const thumbs = carouselThumbnails.querySelectorAll(".carousel-thumb");
+  thumbs.forEach((thumb, i) => {
+    thumb.classList.toggle("active", i === carouselIndex);
   });
 }
 
@@ -159,19 +193,10 @@ function showCarouselImage(index) {
   carouselImg.style.display = "block";
   carouselLoading.hidden = true;
 
-  // Update counter
-  carouselCounter.textContent = `${index + 1} / ${carouselImages.length}`;
-
-  // Update buttons
-  carouselPrev.disabled = index === 0;
-  carouselNext.disabled = index === carouselImages.length - 1;
-
-  // Update active thumbnail
-  const thumbs = carouselThumbnails.querySelectorAll(".carousel-thumb");
-  thumbs.forEach((t, i) => {
-    t.classList.toggle("active", i === index);
-    if (i === index) {
-      t.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-    }
+  updateCarouselNavigation();
+  carouselThumbnails.querySelectorAll(".carousel-thumb")[index]?.scrollIntoView({
+    behavior: "smooth",
+    block: "nearest",
+    inline: "center",
   });
 }

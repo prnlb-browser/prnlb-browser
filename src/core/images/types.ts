@@ -51,4 +51,6 @@ export interface ImageProgress {
   message: string;
   current?: number;
   total?: number;
+  /** A screenshot that became available while the remaining images resolve. */
+  image?: ResolvedImage;
 }

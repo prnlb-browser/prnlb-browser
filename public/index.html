@@ -528,10 +528,7 @@
           <div class="carousel-viewport">
             <img id="carousel-image" class="carousel-image" src="" alt="Loading..." />
             <div id="carousel-loading" class="carousel-loading">
-              <div id="carousel-progress-text">Loading images...</div>
-              <div id="carousel-progress-bar-container" class="carousel-progress-bar-container">
-                <div id="carousel-progress-bar" class="carousel-progress-bar" style="width: 0%"></div>
-              </div>
+              <span class="carousel-loading-icon" role="img" aria-label="Loading images">📷</span>
             </div>
           </div>
           <button id="carousel-next" class="carousel-btn carousel-btn-next">›</button>
@@ -539,6 +536,7 @@
         <div class="carousel-thumbnails" id="carousel-thumbnails"></div>
       </div>
       <div class="modal-footer">
+        <span id="carousel-resolution-status" class="carousel-resolution-status" aria-live="polite"></span>
         <span id="carousel-counter" class="carousel-counter"></span>
       </div>
     </div>

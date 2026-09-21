@@ -1,4 +1,4 @@
-import type { ImageHostResolver, ResolvedImage, ScrapedImage } from "./types.js";
+import type { ImageHostResolver, ImageProgress, ResolvedImage, ScrapedImage } from "./types.js";
 import { FastpicResolver } from "./fastpic.js";
 import { ImgboxResolver } from "./imgbox.js";
 import { TurboImageHostResolver } from "./turboimagehost.js";
@@ -49,36 +49,69 @@ class ResolverRegistry {
    */
   async resolveImages(
     images: ScrapedImage[],
-    onProgress?: (p: { phase: string; message: string; current: number; total: number }) => void,
+    onProgress?: (p: ImageProgress) => void,
     signal?: AbortSignal,
   ): Promise<ResolvedImage[]> {
-    const results: ResolvedImage[] = [];
     const total = images.length;
+    const results: Array<ResolvedImage | undefined> = new Array(total);
+    let completed = 0;
 
-    for (let i = 0; i < images.length; i++) {
+    // Resolve strictly one at a time to avoid burst traffic and host blocks.
+    // Progress events still make each completed image available immediately.
+    for (let index = 0; index < images.length; index += 1) {
       if (signal?.aborted) break;
 
-      const img = images[i]!;
+      const img = images[index]!;
       const resolver = this.findResolver(img.resolveUrl);
-      if (!resolver) continue;
-
-      if (onProgress) {
-        onProgress({ phase: "resolving", message: `Resolving ${i + 1}/${total}...`, current: i + 1, total });
-      }
-
-      const resolvedUrl = await resolver.resolve(img.resolveUrl, signal);
-      if (signal?.aborted) break;
-      if (resolvedUrl) {
-        results.push({
-          originalUrl: img.resolveUrl,
-          thumbnailUrl: img.thumbnailUrl,
-          resolvedUrl,
-          resolver: resolver.name,
+      if (!resolver) {
+        completed += 1;
+        onProgress?.({
+          phase: "resolving",
+          message: `Skipped ${completed}/${total}`,
+          current: completed,
+          total,
         });
+        continue;
       }
+
+      onProgress?.({
+        phase: "resolving",
+        message: `Resolving ${index + 1}/${total}...`,
+        current: completed,
+        total,
+      });
+
+      let resolvedUrl: string | null = null;
+      try {
+        resolvedUrl = await resolver.resolve(img.resolveUrl, signal);
+      } catch (error) {
+        if (!signal?.aborted) {
+          console.warn(`Could not resolve ${img.resolveUrl}:`, (error as Error).message);
+        }
+      }
+      if (signal?.aborted) break;
+
+      completed += 1;
+      const resolved = resolvedUrl
+        ? {
+            originalUrl: img.resolveUrl,
+            thumbnailUrl: img.thumbnailUrl,
+            resolvedUrl,
+            resolver: resolver.name,
+          }
+        : undefined;
+      results[index] = resolved;
+
+      onProgress?.({
+        phase: "resolving",
+        message: resolved ? `Resolved ${completed}/${total}` : `Skipped ${completed}/${total}`,
+        current: completed,
+        total,
+        image: resolved,
+      });
     }
 
-    return results;
+    return results.filter((image): image is ResolvedImage => image !== undefined);
   }
 
   /**

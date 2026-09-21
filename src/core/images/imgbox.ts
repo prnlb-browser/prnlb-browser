@@ -1,5 +1,3 @@
-import * as https from "node:https";
-import * as http from "node:http";
 import { URL } from "node:url";
 import type { ImageHostResolver } from "./types.js";
 
@@ -32,8 +30,9 @@ export class ImgboxResolver implements ImageHostResolver {
     }
   }
 
-  async resolve(url: string): Promise<string | null> {
+  async resolve(url: string, signal?: AbortSignal): Promise<string | null> {
     try {
+      if (signal?.aborted) return null;
       const parsed = new URL(url);
 
       // Case 1: Thumbnail URL (e.g. https://thumbs2.imgbox.com/b4/65/Cc8cHwpS_t.jpg)
@@ -43,7 +42,7 @@ export class ImgboxResolver implements ImageHostResolver {
 
       // Case 2: Link page URL (e.g. https://imgbox.com/Cc8cHwpS)
       if (parsed.hostname === "imgbox.com") {
-        return await this.resolveFromPage(url);
+        return await this.resolveFromPage(url, signal);
       }
 
       // Already a full-size image URL (e.g. images2.imgbox.com) — return as-is
@@ -79,8 +78,8 @@ export class ImgboxResolver implements ImageHostResolver {
    * Fetch the imgbox link page and extract the full-size image URL
    * from the element with class="image-content".
    */
-  private async resolveFromPage(pageUrl: string): Promise<string | null> {
-    const html = await this.fetchPage(pageUrl);
+  private async resolveFromPage(pageUrl: string, signal?: AbortSignal): Promise<string | null> {
+    const html = await this.fetchPage(pageUrl, signal);
     if (!html) return null;
 
     // Look for <img> inside an element with class="image-content"
@@ -105,44 +104,16 @@ export class ImgboxResolver implements ImageHostResolver {
     return null;
   }
 
-  private fetchPage(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const parsedUrl = new URL(url);
-      const client = parsedUrl.protocol === "https:" ? https : http;
-
-      const req = client.get(
-        url,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          },
-        },
-        (res) => {
-          // Follow redirects
-          if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            this.fetchPage(res.headers.location).then(resolve).catch(reject);
-            return;
-          }
-
-          if (res.statusCode !== 200) {
-            reject(new Error(`HTTP ${res.statusCode} for ${url}`));
-            return;
-          }
-
-          const chunks: Buffer[] = [];
-          res.on("data", (chunk: Buffer) => chunks.push(chunk));
-          res.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-          res.on("error", reject);
-        },
-      );
-
-      req.on("error", reject);
-      req.setTimeout(15_000, () => {
-        req.destroy();
-        reject(new Error(`Timeout fetching ${url}`));
-      });
+  private async fetchPage(url: string, signal?: AbortSignal): Promise<string> {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      signal,
     });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    return response.text();
   }
 }

@@ -1,5 +1,3 @@
-import * as http from "node:http";
-import * as https from "node:https";
 import { URL } from "node:url";
 import type { ImageHostResolver } from "./types.js";
 
@@ -25,15 +23,16 @@ export class PicshickResolver implements ImageHostResolver {
     }
   }
 
-  async resolve(url: string): Promise<string | null> {
+  async resolve(url: string, signal?: AbortSignal): Promise<string | null> {
     try {
+      if (signal?.aborted) return null;
       const parsed = new URL(url);
       if (/^img\d+\.picshick\.com$/i.test(parsed.hostname)) {
         if (/^\/i\//i.test(parsed.pathname)) return parsed.toString();
         return this.thumbnailToImageUrl(parsed);
       }
 
-      const html = await this.fetchPage(url);
+      const html = await this.fetchPage(url, signal);
       return this.extractFullImageUrl(html);
     } catch (err) {
       console.error(
@@ -59,39 +58,15 @@ export class PicshickResolver implements ImageHostResolver {
     return match?.[1]?.replace(/&amp;/g, "&") ?? null;
   }
 
-  private fetchPage(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const parsedUrl = new URL(url);
-      const client = parsedUrl.protocol === "https:" ? https : http;
-      const req = client.get(
-        url,
-        { headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml" } },
-        (res) => {
-          if (
-            res.statusCode &&
-            res.statusCode >= 300 &&
-            res.statusCode < 400 &&
-            res.headers.location
-          ) {
-            const redirectedUrl = new URL(res.headers.location, url).toString();
-            this.fetchPage(redirectedUrl).then(resolve).catch(reject);
-            return;
-          }
-          if (res.statusCode !== 200) {
-            reject(new Error(`HTTP ${res.statusCode} for ${url}`));
-            return;
-          }
-          const chunks: Buffer[] = [];
-          res.on("data", (chunk: Buffer) => chunks.push(chunk));
-          res.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
-          res.on("error", reject);
-        },
-      );
-      req.on("error", reject);
-      req.setTimeout(15_000, () => {
-        req.destroy();
-        reject(new Error(`Timeout fetching ${url}`));
-      });
+  private async fetchPage(url: string, signal?: AbortSignal): Promise<string> {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal,
     });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    return response.text();
   }
 }

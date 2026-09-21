@@ -217,7 +217,13 @@ export class FastpicResolver implements ImageHostResolver {
     while (Date.now() < deadline) {
       this.throwIfAborted(signal);
       const html = await page.content();
-      if (this.extractBigImageUrl(html)) return html;
+      // A tokenized view page may not contain the signed /big/ URL yet, but
+      // it can already expose the /fullview/ page that contains it. Return
+      // immediately so resolve() can follow that link instead of polling
+      // until the full timeout expires.
+      if (this.extractBigImageUrl(html) || this.extractFullViewUrl(html)) {
+        return html;
+      }
       await this.sleep(POLL_INTERVAL_MS, signal);
     }
     return page.content();
