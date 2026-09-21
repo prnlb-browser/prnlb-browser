@@ -136,6 +136,18 @@ describe("FastpicResolver", () => {
       assert.equal(extract(html), null);
     });
 
+    it("extracts the signed URL from a fullview loading_img variable", () => {
+      const html = `
+        <script>
+          var loading_img = 'https://i127.fastpic.org/big/2026/0419/fc/test.jpg?md5=abc&amp;expires=123';
+        </script>
+      `;
+      assert.equal(
+        extract(html),
+        "https://i127.fastpic.org/big/2026/0419/fc/test.jpg?md5=abc&expires=123",
+      );
+    });
+
     it("handles HTML with multiline attributes", () => {
       const html = `<img
         src="https://i127.fastpic.org/big/2026/0704/5f/hash.jpg?md5=abc&expires=123"
@@ -172,6 +184,18 @@ describe("FastpicResolver", () => {
       const result = await resolver.resolve(EXAMPLE2_HREF);
 
       assert.equal(result, bigImageUrl);
+    });
+
+    it("follows the fullview link when the view page has no image URL", async () => {
+      const viewPageUrl = "https://fastpic.org/view/127/2026/0419/test.jpg.html";
+      const fullViewUrl = "https://fastpic.org/fullview/127/2026/0419/test.jpg.html";
+      const bigImageUrl = "https://i127.fastpic.org/big/2026/0419/fc/test.jpg?md5=abc&expires=123";
+      const resolver = createMockResolver({
+        [viewPageUrl]: `<a href="${fullViewUrl}">Показать полный размер</a>`,
+        [fullViewUrl]: `<script>var loading_img = '${bigImageUrl}'</script>`,
+      });
+
+      assert.equal(await resolver.resolve(viewPageUrl), bigImageUrl);
     });
 
     it("resolves example 2 — thumbnail URL builds view page and fetches", async () => {

@@ -2,6 +2,7 @@ import type { ImageHostResolver, ResolvedImage, ScrapedImage } from "./types.js"
 import { FastpicResolver } from "./fastpic.js";
 import { ImgboxResolver } from "./imgbox.js";
 import { TurboImageHostResolver } from "./turboimagehost.js";
+import { PicshickResolver } from "./picshick.js";
 
 /**
  * Registry of all available image host resolvers.
@@ -15,6 +16,7 @@ class ResolverRegistry {
     this.register(new FastpicResolver());
     this.register(new ImgboxResolver());
     this.register(new TurboImageHostResolver());
+    this.register(new PicshickResolver());
   }
 
   /**

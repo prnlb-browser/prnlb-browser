@@ -57,7 +57,7 @@ export const handleImageRoutes: RouteHandler = async ({ req, res, url, method, a
   // GET /api/topic/image?url=<resolved image URL> — proxies the preview
   // carousel's full-resolution image requests through the on-disk cache.
   // `url` is
-  // restricted to hosts a resolver recognizes (fastpic/imgbox/turboimagehost) rather than
+  // restricted to hosts a resolver recognizes (fastpic/imgbox/turboimagehost/picshick) rather than
   // proxying arbitrary URLs, since this endpoint is otherwise a same-origin
   // fetch-any-URL primitive.
   if (url.pathname === "/api/topic/image" && method === "GET") {

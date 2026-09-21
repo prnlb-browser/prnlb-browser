@@ -44,7 +44,16 @@ export class FastpicResolver implements ImageHostResolver {
       if (!pageUrl) return null;
 
       const html = await this.fetchPage(pageUrl, signal);
-      return this.extractBigImageUrl(html);
+      const bigUrl = this.extractBigImageUrl(html);
+      if (bigUrl) return bigUrl;
+
+      // Tokenized Fastpic view pages can still expose the image only through
+      // their /fullview/ link. Load that page to obtain its signed URL.
+      const fullViewUrl = this.extractFullViewUrl(html);
+      if (!fullViewUrl) return null;
+
+      const fullViewHtml = await this.fetchPage(fullViewUrl, signal);
+      return this.extractBigImageUrl(fullViewHtml);
     } catch (err) {
       if (!signal?.aborted) {
         console.error(`FastpicResolver: Failed to resolve ${url}:`, (err as Error).message);
@@ -97,24 +106,41 @@ export class FastpicResolver implements ImageHostResolver {
    * Looks for URLs matching the fastpic big image pattern.
    */
   private extractBigImageUrl(html: string): string | null {
-    // Normalize whitespace in HTML — the src attribute may span multiple lines
     const normalizedHtml = html.replace(/\s+/g, " ");
 
-    // Pattern 1: Look for <img> tags with big image URLs
-    const imgRegex = /<img[^>]+src=["'](https:\/\/i\d+\.fastpic\.org\/big\/[^"']+)["']/i;
-    const imgMatch = normalizedHtml.match(imgRegex);
-    if (imgMatch) {
-      return this.decodeHtmlEntities(imgMatch[1]!);
+    // Fullview pages put the signed URL in a script variable. Check this
+    // before generic markup so an unrelated 1x1 tracking image cannot win.
+    const loadingImageMatch = normalizedHtml.match(
+      /\bloading_img\s*=\s*["']((?:https?:)?\/\/i\d+\.fastpic\.org\/big\/[^"']+)["']/i,
+    );
+    if (loadingImageMatch?.[1]) {
+      return this.normalizeImageUrl(loadingImageMatch[1]);
     }
 
-    // Pattern 2: Look for direct URL references to big images in any attribute
-    const urlRegex = /(https:\/\/i\d+\.fastpic\.org\/big\/[^\s<>"']+)/i;
-    const urlMatch = normalizedHtml.match(urlRegex);
-    if (urlMatch) {
-      return this.decodeHtmlEntities(urlMatch[1]!);
+    // Rendered view pages assign the signed URL to an image or download link.
+    // Restrict this lookup to HTML attributes to avoid ad/tracker CSS URLs.
+    const attributeRegex =
+      /\b(?:src|href|data-src|data-original)\s*=\s*["']((?:https?:)?\/\/i\d+\.fastpic\.org\/big\/[^"']+)["']/gi;
+    const attributeMatch = attributeRegex.exec(normalizedHtml);
+    if (attributeMatch?.[1]) {
+      return this.normalizeImageUrl(attributeMatch[1]);
     }
 
     return null;
+  }
+
+  private extractFullViewUrl(html: string): string | null {
+    const match = html.match(
+      /https:\/\/(?:www\.)?fastpic\.org\/fullview\/[^\s<>'"]+/i,
+    );
+    return match?.[0]?.replace(/&amp;/g, "&").replace(/[),;]+$/, "") ?? null;
+  }
+
+  private normalizeImageUrl(value: string): string {
+    const decoded = this.decodeHtmlEntities(value).trim();
+    return decoded.startsWith("//")
+      ? `https:${decoded}`
+      : decoded.replace(/^http:/i, "https:");
   }
 
   private decodeHtmlEntities(str: string): string {
