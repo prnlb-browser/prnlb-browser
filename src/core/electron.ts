@@ -5,7 +5,7 @@
 // app.isPackaged and process.resourcesPath are both available immediately
 // after requiring "electron" — no need to wait for app.whenReady().
 import * as path from "node:path";
-import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, Menu, dialog, ipcMain, powerMonitor, shell } from "electron";
 
 process.env.PLAYWRIGHT_BROWSERS_PATH = app.isPackaged
   ? path.join(process.resourcesPath, "browsers")
@@ -13,6 +13,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH = app.isPackaged
 
 import * as fs from "node:fs";
 import { startServer } from "./server/index.js";
+import type { AppContext } from "./server/context.js";
 import type { ItemRef, NavigateDestination } from "./types.js";
 
 let mainWindow: BrowserWindow | null = null;
@@ -65,7 +66,7 @@ function setupIpcHandlers(): void {
   ipcMain.handle("app:getVersion", () => app.getVersion());
 }
 
-async function createWindow(port: number): Promise<void> {
+async function createWindow(port: number, appContext: AppContext): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 900,
@@ -126,7 +127,24 @@ async function createWindow(port: number): Promise<void> {
   // Load the app from the local server
   mainWindow.loadURL(`http://localhost:${port}`);
 
+  const updateWindowActivity = (active: boolean): void => {
+    appContext.setWindowActive(active && !!mainWindow && !mainWindow.isMinimized());
+  };
+  mainWindow.on("focus", () => updateWindowActivity(true));
+  mainWindow.on("blur", () => updateWindowActivity(false));
+  mainWindow.on("minimize", () => updateWindowActivity(false));
+  mainWindow.on("restore", () => updateWindowActivity(mainWindow?.isFocused() ?? false));
+  mainWindow.on("hide", () => updateWindowActivity(false));
+  mainWindow.on("show", () => updateWindowActivity(mainWindow?.isFocused() ?? false));
+  powerMonitor.on("suspend", () => updateWindowActivity(false));
+  powerMonitor.on("resume", () => updateWindowActivity(mainWindow?.isFocused() ?? false));
+  powerMonitor.on("lock-screen", () => updateWindowActivity(false));
+  powerMonitor.on("unlock-screen", () => updateWindowActivity(mainWindow?.isFocused() ?? false));
+  updateWindowActivity(mainWindow.isFocused());
+
   mainWindow.on("closed", () => {
+    appContext.setWindowActive(false);
+    appContext.getUsageStore().close();
     mainWindow = null;
   });
 }
@@ -221,7 +239,7 @@ app.whenReady().then(async () => {
     const { port, app: serverApp } = await startServer({ staticDir: publicDir, userDataDir, port: 0 });
     serverApp.setNavigator((item, destination) => navigateToItem(item, destination, serverApp));
     console.log(`✅ Electron server started on random port ${port}`);
-    await createWindow(port);
+    await createWindow(port, serverApp);
   } catch (err) {
     console.error("Failed to start:", err);
     dialog.showErrorBox("Startup Error", String(err));

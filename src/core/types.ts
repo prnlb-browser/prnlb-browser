@@ -12,6 +12,7 @@ export interface Config {
   // preview carousel. When a write would push the cache over this limit,
   // the oldest (by last-read time) files are deleted first. 0 disables it.
   screenshotCache: { maxSizeMB: number };
+  screenTime: { enabled: boolean };
   mcp: { enabled: boolean };
 }
 

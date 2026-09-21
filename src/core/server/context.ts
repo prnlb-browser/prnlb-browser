@@ -4,6 +4,7 @@ import { ConfigStore } from "../../config/store.js";
 import { createTopicStore, type TopicStore } from "../../results/store.js";
 import { createDownloadedStore, type DownloadedStore } from "../../downloaded/store.js";
 import { createActressStore, type ActressStore } from "../../actresses/store.js";
+import { UsageStore } from "../usage.js";
 
 export interface CrawlState {
   isRunning: boolean;
@@ -14,6 +15,7 @@ export interface CrawlState {
 
 export class AppContext {
   readonly configStore: ConfigStore;
+  private readonly usageStore: UsageStore;
   readonly crawl: CrawlState = {
     isRunning: false,
     lastProgress: null,
@@ -22,6 +24,7 @@ export class AppContext {
   };
 
   private currentConfig = null as ReturnType<ConfigStore["load"]> | null;
+  private windowActive = false;
   private topicStore: TopicStore | null = null;
   private downloadedStore: DownloadedStore | null = null;
   private actressStore: ActressStore | null = null;
@@ -32,6 +35,16 @@ export class AppContext {
     readonly userDataDir: string,
   ) {
     this.configStore = new ConfigStore(userDataDir);
+    this.usageStore = new UsageStore(userDataDir);
+  }
+
+  getUsageStore(): UsageStore {
+    return this.usageStore;
+  }
+
+  setWindowActive(active: boolean): void {
+    this.windowActive = active;
+    this.usageStore.setActive(active && (this.loadConfig().screenTime?.enabled ?? true));
   }
 
   loadConfig(): ReturnType<ConfigStore["load"]> {
@@ -42,6 +55,7 @@ export class AppContext {
   saveConfig(config: ReturnType<ConfigStore["load"]>): void {
     this.configStore.save(config);
     this.currentConfig = config;
+    this.usageStore.setActive(this.windowActive && (config.screenTime?.enabled ?? true));
   }
 
   getTopicStore(): TopicStore {

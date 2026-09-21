@@ -3,7 +3,13 @@ const btnAddForum = document.getElementById("btn-add-forum");
 const btnSaveConfig = document.getElementById("btn-save-config");
 const btnClearHiddenResults = document.getElementById("btn-clear-hidden-results");
 const btnClearTurboImageHostCookies = document.getElementById("btn-clear-turboimagehost-cookies");
+const screenTimeIndicator = document.getElementById("screen-time-indicator");
+const screenTimeEnabledToggle = document.getElementById("cfg-screen-time-enabled");
 const configStatus = document.getElementById("config-status");
+
+function updateScreenTimeVisibility() {
+  screenTimeIndicator.hidden = !screenTimeEnabledToggle.checked;
+}
 
 function renderForums() {
   forumsList.innerHTML = "";
@@ -39,6 +45,8 @@ function fillForm() {
   document.getElementById("cfg-delay-min").value = config.delay?.min ?? 2000;
   document.getElementById("cfg-delay-max").value = config.delay?.max ?? 5000;
   document.getElementById("cfg-cache-max-size").value = config.screenshotCache?.maxSizeMB ?? 200;
+  screenTimeEnabledToggle.checked = config.screenTime?.enabled ?? true;
+  updateScreenTimeVisibility();
   document.getElementById("cfg-mcp-enabled").checked = config.mcp?.enabled ?? false;
   document.getElementById("cfg-mcp-endpoint").textContent = `${window.location.origin}/mcp`;
   renderForums();
@@ -55,6 +63,9 @@ function collectForm() {
   };
   config.screenshotCache = {
     maxSizeMB: Math.max(0, parseInt(document.getElementById("cfg-cache-max-size").value, 10) || 0),
+  };
+  config.screenTime = {
+    enabled: document.getElementById("cfg-screen-time-enabled").checked,
   };
   config.mcp = {
     enabled: document.getElementById("cfg-mcp-enabled").checked,
@@ -79,6 +90,7 @@ btnAddForum.addEventListener("click", () => {
 });
 
 document.getElementById("cfg-headless").addEventListener("change", collectForm);
+screenTimeEnabledToggle.addEventListener("change", updateScreenTimeVisibility);
 
 btnSaveConfig.addEventListener("click", async () => {
   collectForm();

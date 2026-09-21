@@ -34,6 +34,7 @@
 - **🎭 Actress Catalogue** — Maintain a searchable roster of actresses (with aliases and photos) used to cross‑reference "Cast" across every tab
 - **❤️ Favorites** — Save and organize your favorite topics and actresses for quick access
 - **📸 Screenshot Tool** — Capture and review topic previews without leaving the app
+- **⏱️ Screen Time** — See active time spent in the app today and a local day-by-day summary for the last 14 days
 - **🧠 Deduplication** — Safe to re‑run: already‑scraped topics and previously scanned files are skipped automatically
 - **🖥️ Desktop App** — Native macOS / Windows / Linux builds available (powered by Electron)
 - **🔌 Embedded MCP Server** — Optionally expose local tools for crawling, searching, organizing items, analysing scaled screenshots, and managing actresses
@@ -76,6 +77,10 @@ A credentials-free `config.template.json` is bundled with the app so the
 defaults are present on first launch; the actual `config.json` (with any
 credentials you enter) is created and stored only inside Electron's user
 data directory and is gitignored.
+
+Screen-time data is also stored locally in the Electron user data directory.
+Only time while the app window is active is counted; tracking can be disabled
+from the Config tab, and no usage data is sent anywhere.
 
 ---
 

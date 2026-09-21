@@ -15,6 +15,11 @@ export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, 
     return true;
   }
 
+  if (url.pathname === "/api/usage" && method === "GET") {
+    json(res, app.getUsageStore().getStats());
+    return true;
+  }
+
   if (url.pathname === "/api/config/turboimagehost/verification-data" && method === "DELETE") {
     await resolverRegistry.clearTurboImageHostVerificationData();
     json(res, {

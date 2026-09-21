@@ -10,7 +10,10 @@
 <body>
   <div class="container">
     <h1>prnlb-browser</h1>
-    <p class="subtitle">Pornolab.net forum scraper</p>
+    <div class="app-status-row">
+      <p class="subtitle">Pornolab.net forum scraper</p>
+      <div id="screen-time-indicator" class="screen-time-indicator" aria-live="polite" hidden>🕒 Screen time today: <span id="screen-time-value">00:00:00</span></div>
+    </div>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -43,6 +46,26 @@
             <option value="en">English</option>
             <option value="ru">Русский</option>
           </select>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Screen Time</h2>
+        <p class="card-description">Only time while this app window is active is counted. Statistics cover the last 14 days, including today.</p>
+        <div class="form-row">
+          <label for="cfg-screen-time-enabled">Enable screen time tracking</label>
+          <label class="toggle" title="Enable screen time tracking">
+            <input type="checkbox" id="cfg-screen-time-enabled" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="usage-summary"><span>Last 14 days</span><strong id="usage-stats-total">00:00:00</strong></div>
+        <div id="usage-chart" class="usage-chart" role="group" aria-label="Daily active screen time for the last 14 days">
+          <div class="usage-chart-axis" aria-hidden="true">
+            <span id="usage-chart-max">01:00:00</span>
+            <span id="usage-chart-mid">00:30:00</span>
+            <span>00:00:00</span>
+          </div>
+          <div id="usage-chart-bars" class="usage-chart-bars" role="list"></div>
         </div>
       </div>
       <div class="card">

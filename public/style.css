@@ -39,7 +39,27 @@ h1 {
 
 .subtitle {
   color: var(--text-muted);
+  margin-bottom: 0;
+}
+
+.app-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.screen-time-indicator {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.screen-time-indicator span {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 /* --- Tabs --- */
@@ -225,6 +245,98 @@ textarea { resize: vertical; min-height: 5rem; }
 }
 .status-msg.success { color: var(--success); }
 .status-msg.error { color: var(--error); }
+
+.usage-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+}
+
+.usage-summary strong {
+  color: var(--text);
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-chart {
+  display: flex;
+  gap: 0.6rem;
+  min-height: 12rem;
+  padding-top: 0.25rem;
+}
+
+.usage-chart-axis {
+  display: flex;
+  flex: 0 0 4.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.usage-chart-bars {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0 0.25rem 0;
+  border-bottom: 1px solid var(--border);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(50% - 0.5px),
+    color-mix(in srgb, var(--border) 65%, transparent) 50%,
+    transparent calc(50% + 0.5px),
+    transparent 100%
+  );
+}
+
+.usage-chart-column {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.usage-bar-track {
+  display: flex;
+  width: 100%;
+  height: calc(100% - 1.5rem);
+  align-items: flex-end;
+}
+
+.usage-bar {
+  width: 100%;
+  min-height: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  transition: height 0.25s ease;
+}
+
+.usage-chart-date {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-chart-date-day { display: inline; }
+
+.usage-chart-date-month::after { content: " "; }
 
 /* Filter toggle select */
 .filter-toggle select {
@@ -819,6 +931,13 @@ textarea { resize: vertical; min-height: 5rem; }
 
 /* Stack result card vertically on narrow windows so it never overflows. */
 @media (max-width: 640px) {
+  .app-status-row { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+
+  .usage-chart { gap: 0.35rem; }
+  .usage-chart-axis { flex-basis: 3.5rem; font-size: 0.65rem; }
+  .usage-chart-bars { gap: 0.15rem; }
+  .usage-chart-date-month { display: none; }
+
   .result-card {
     flex-direction: column;
     gap: 0.5rem;

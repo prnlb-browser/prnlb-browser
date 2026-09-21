@@ -38,14 +38,16 @@ describe("ConfigStore", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "prnlb-config-"));
     try {
       const store = new ConfigStore(root);
+      const { screenTime: _legacyScreenTime, ...legacyConfig } = getDefaultConfig();
       fs.writeFileSync(
         store.path,
-        JSON.stringify({ ...getDefaultConfig(), ai: { enabled: true, provider: "ollama" } }),
+        JSON.stringify({ ...legacyConfig, ai: { enabled: true, provider: "ollama" } }),
         "utf-8",
       );
       const loaded = store.load();
       assert.equal("ai" in loaded, false);
       assert.deepEqual(loaded.screenshotCache, { maxSizeMB: 200 });
+      assert.deepEqual(loaded.screenTime, { enabled: true });
       assert.deepEqual(loaded.mcp, { enabled: false });
       store.save(loaded);
       assert.equal("ai" in JSON.parse(fs.readFileSync(store.path, "utf-8")), false);

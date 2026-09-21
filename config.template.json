@@ -23,6 +23,9 @@
   "screenshotCache": {
     "maxSizeMB": 200
   },
+  "screenTime": {
+    "enabled": true
+  },
   "mcp": {
     "enabled": false
   }
