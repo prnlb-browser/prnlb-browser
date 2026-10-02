@@ -425,6 +425,7 @@ textarea { resize: vertical; min-height: 5rem; }
 }
 .result-card:has(.popup-menu.open) { z-index: 50; }
 .result-card:hover { border-color: var(--text-muted); }
+.result-card:has(.result-thumb:hover) { z-index: 60; }
 .result-card--hidden { opacity: 0.45; border-color: var(--warning); }
 .result-card--fav {
   background: #3d3415 !important;
@@ -449,6 +450,22 @@ textarea { resize: vertical; min-height: 5rem; }
   border-radius: 6px;
   flex-shrink: 0;
   background: var(--border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .result-card:has(.result-thumb:hover) .result-thumb {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: auto;
+    height: auto;
+    max-width: min(80vw, 800px);
+    max-height: 80vh;
+    aspect-ratio: auto;
+    object-fit: contain;
+    z-index: 1;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+    cursor: zoom-out;
+  }
 }
 
 .result-info { flex: 1; min-width: 0; }
