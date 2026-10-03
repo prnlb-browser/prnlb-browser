@@ -26,6 +26,10 @@
   "screenTime": {
     "enabled": true
   },
+  "duplicateHiding": {
+    "enabled": true,
+    "preferredQuality": "1080p"
+  },
   "mcp": {
     "enabled": false
   }

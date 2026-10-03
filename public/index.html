@@ -69,6 +69,25 @@
         </div>
       </div>
       <div class="card">
+        <h2>Duplicate Topics</h2>
+        <p class="card-description">When a crawl finds the same video in multiple qualities with the same duration, hide versions that do not match your preferred quality.</p>
+        <div class="form-row">
+          <label for="cfg-duplicate-hiding-enabled">Automatically hide duplicate qualities</label>
+          <label class="toggle" title="Automatically hide duplicate qualities">
+            <input type="checkbox" id="cfg-duplicate-hiding-enabled" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label for="cfg-duplicate-hiding-quality">Preferred video quality</label>
+          <select id="cfg-duplicate-hiding-quality">
+            <option value="1080p">1080p</option>
+            <option value="2160p">2160p</option>
+            <option value="720p">720p</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
         <h2>Request Delay (ms)</h2>
         <div class="form-row">
           <label>Min delay</label>

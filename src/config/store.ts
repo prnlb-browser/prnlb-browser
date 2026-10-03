@@ -13,6 +13,7 @@ export function getDefaultConfig(): Config {
     downloadedFolder: "",
     screenshotCache: { maxSizeMB: 200 },
     screenTime: { enabled: true },
+    duplicateHiding: { enabled: true, preferredQuality: "1080p" },
     mcp: { enabled: false },
   };
 }
@@ -34,6 +35,7 @@ export class ConfigStore {
         ...configWithoutAi,
         screenshotCache: { ...defaultConfig.screenshotCache, ...parsed.screenshotCache },
         screenTime: { ...defaultConfig.screenTime, ...parsed.screenTime },
+        duplicateHiding: { ...defaultConfig.duplicateHiding, ...parsed.duplicateHiding },
         mcp: { ...defaultConfig.mcp, ...parsed.mcp },
       } as Config;
     } catch {

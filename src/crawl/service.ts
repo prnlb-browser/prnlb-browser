@@ -1,5 +1,6 @@
 import type { AppContext } from "../core/server/context.js";
 import type { TopicData } from "../core/types.js";
+import { hideDuplicateQualities } from "./duplicate-hiding.js";
 import { crawl } from "./scraper.js";
 
 export async function runCrawl(app: AppContext): Promise<void> {
@@ -8,11 +9,21 @@ export async function runCrawl(app: AppContext): Promise<void> {
   const existingUrls = new Set(store.getAll().map((topic) => topic.topicUrl));
 
   try {
-    const { results, skipped: preFiltered } = await crawl(
+    const { results: crawledResults, skipped: preFiltered } = await crawl(
       config,
       (progress) => app.emitCrawlProgress(progress),
       existingUrls,
     );
+    let results = crawledResults;
+    if (config.duplicateHiding?.enabled) {
+      const preferredQuality = config.duplicateHiding.preferredQuality ?? "1080p";
+      results = hideDuplicateQualities(crawledResults, preferredQuality, (topic, quality) => {
+        app.emitCrawlProgress({
+          phase: "detail",
+          message: `SKIP (duplicate quality ${quality}; preferred ${preferredQuality}): ${topic.title}`,
+        });
+      });
+    }
     const { inserted, skipped: dbSkipped } = store.insertMany(results);
     app.crawl.lastResults = results;
     const totalSkipped = preFiltered + dbSkipped;

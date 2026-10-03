@@ -13,6 +13,7 @@ export interface Config {
   // the oldest (by last-read time) files are deleted first. 0 disables it.
   screenshotCache: { maxSizeMB: number };
   screenTime: { enabled: boolean };
+  duplicateHiding: { enabled: boolean; preferredQuality: "1080p" | "2160p" | "720p" };
   mcp: { enabled: boolean };
 }
 

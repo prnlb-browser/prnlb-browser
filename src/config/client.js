@@ -47,6 +47,8 @@ function fillForm() {
   document.getElementById("cfg-cache-max-size").value = config.screenshotCache?.maxSizeMB ?? 200;
   screenTimeEnabledToggle.checked = config.screenTime?.enabled ?? true;
   updateScreenTimeVisibility();
+  document.getElementById("cfg-duplicate-hiding-enabled").checked = config.duplicateHiding?.enabled ?? true;
+  document.getElementById("cfg-duplicate-hiding-quality").value = config.duplicateHiding?.preferredQuality ?? "1080p";
   document.getElementById("cfg-mcp-enabled").checked = config.mcp?.enabled ?? false;
   document.getElementById("cfg-mcp-endpoint").textContent = `${window.location.origin}/mcp`;
   renderForums();
@@ -66,6 +68,10 @@ function collectForm() {
   };
   config.screenTime = {
     enabled: document.getElementById("cfg-screen-time-enabled").checked,
+  };
+  config.duplicateHiding = {
+    enabled: document.getElementById("cfg-duplicate-hiding-enabled").checked,
+    preferredQuality: document.getElementById("cfg-duplicate-hiding-quality").value,
   };
   config.mcp = {
     enabled: document.getElementById("cfg-mcp-enabled").checked,
