@@ -90,6 +90,14 @@ export function decodeTags(raw: string | null | undefined): Tag[] {
   }
 }
 
+// Replace or remove every occurrence, including tags imported with different casing.
+export function replaceTag(tags: Tag[], name: string, replacement: Tag | null): Tag[] {
+  const key = name.trim().toLowerCase();
+  return normalizeTags(tags.flatMap((tag) =>
+    tag.name.toLowerCase() === key ? (replacement ? [replacement] : []) : [tag],
+  ));
+}
+
 // Merge multiple already-decoded tag lists (e.g. one per feature/table) into
 // a single deduped, sorted list. This is what lets the Downloaded and Results
 // tabs present one unified tag vocabulary even though each keeps its own

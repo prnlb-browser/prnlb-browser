@@ -7,6 +7,8 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { AppContext } from "../server/context.js";
 import type { DownloadedItem, ItemRef, NavigateDestination, TopicData } from "../types.js";
 import { normalizeTags, type Tag } from "../tags.js";
+import { getKnownTags } from "../known-tags.js";
+import { deleteKnownTag, updateKnownTag } from "../tag-management.js";
 import { enrichItemsWithFileStats } from "../../downloaded/scanner.js";
 import { searchPornolab, type SearchResult } from "../../search/scraper.js";
 import { runCrawl } from "../../crawl/service.js";
@@ -249,6 +251,27 @@ function registerTools(server: McpServer, app: AppContext, searches: Map<string,
     content.unshift({ type: "text", text: JSON.stringify({ item, maxDimension, every, offset, images: metadata, totalFound: scraped.length }) });
     return { content };
   });
+
+  server.registerTool("get_available_tags", {
+    description: "List the shared tag names and colors used across all Results and Downloaded items, including hidden results.",
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async () => textResult({ tags: getKnownTags(app) }));
+
+  server.registerTool("update_tag", {
+    description: "Rename or recolor an existing tag across ALL Results and Downloaded items, including hidden results. Names match case-insensitively; duplicate target names are rejected. Omitted fields are preserved; color=null clears the color. Returns the available tags and affected-item counts for each library.",
+    inputSchema: {
+      name: z.string().trim().min(1).describe("Existing tag name."),
+      newName: z.string().trim().min(1).optional().describe("New name; omit to keep the current name."),
+      color: z.string().nullable().optional().describe("CSS color; null clears the color; omit to keep the current color."),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  }, async (input) => textResult(updateKnownTag(app, input)));
+
+  server.registerTool("delete_tag", {
+    description: "Permanently remove an existing tag from ALL Results and Downloaded items, including hidden results. Names match case-insensitively. Preserves items and their other tags. Returns the remaining available tags and affected-item counts for each library.",
+    inputSchema: { name: z.string().trim().min(1).describe("Existing tag name to remove everywhere.") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  }, async ({ name }) => textResult(deleteKnownTag(app, name)));
 
   server.registerTool("get_item_tags", {
     description: "Get tags assigned to an item.", inputSchema: { item: itemRefSchema },

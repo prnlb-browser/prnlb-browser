@@ -122,6 +122,13 @@
         <p class="card-description">Clear the dedicated browser profile used for TurboImageHost verification. This does not affect your app settings, Pornolab login, saved results, or screenshot cache.</p>
         <button id="btn-clear-turboimagehost-cookies" class="btn btn-secondary">🧽 Clear TurboImageHost cookies</button>
       </div>
+      <div class="card" id="config-tags-panel">
+        <h2>Available Tags</h2>
+        <p class="card-description">Rename tags, change their colors, or delete them across Results and Downloaded. Each row saves immediately. Add tags to items in either tab.</p>
+        <button id="btn-refresh-config-tags" class="btn btn-small" type="button">🔄 Refresh</button>
+        <div id="config-tags-list" class="config-tags-list" aria-busy="true"></div>
+        <div id="config-tags-status" class="status-msg" role="status" aria-live="polite"></div>
+      </div>
       <div class="actions">
         <button id="btn-save-config" class="btn btn-primary">💾 Save Config</button>
         <button id="btn-export-csv" class="btn btn-secondary">📥 Export Topics CSV</button>

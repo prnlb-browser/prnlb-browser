@@ -117,7 +117,7 @@ function switchToTab(tabName) {
   tabContents.forEach((tc) => tc.classList.remove("active"));
   tabBtn.classList.add("active");
   tabContent.classList.add("active");
-  if (tabName === "config") { refreshUsageStats(); }
+  if (tabName === "config") { refreshUsageStats(); loadConfigTags(); }
   if (tabName === "results") { loadForums(); loadAllResultsKnownTags(); loadResults(); }
   if (tabName === "downloaded") { loadAllKnownTags(); }
   if (tabName === "actress") { loadActresses(); }

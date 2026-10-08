@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import * as path from "node:path";
 import type { TopicData } from "../core/types.js";
-import { normalizeTags, decodeTags, mergeTagLists } from "../core/tags.js";
+import { normalizeTags, decodeTags, mergeTagLists, replaceTag, type Tag } from "../core/tags.js";
 
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS topics (
@@ -157,6 +157,20 @@ export class TopicStore {
     return this.db
       .prepare("UPDATE topics SET tags = ? WHERE topicUrl = ?")
       .run(JSON.stringify(normalizeTags(tags)), topicUrl).changes > 0;
+  }
+
+  updateTagEverywhere(name: string, replacement: Tag | null): number {
+    return this.db.transaction(() => {
+      const rows = this.db.prepare("SELECT topicUrl, tags FROM topics").all() as { topicUrl: string; tags: string }[];
+      const update = this.db.prepare("UPDATE topics SET tags = ? WHERE topicUrl = ?");
+      let changed = 0;
+      for (const row of rows) {
+        const tags = decodeTags(row.tags);
+        if (!tags.some((tag) => tag.name.toLowerCase() === name.trim().toLowerCase())) continue;
+        changed += update.run(JSON.stringify(replaceTag(tags, name, replacement)), row.topicUrl).changes;
+      }
+      return changed;
+    })();
   }
 
   setRating(topicUrl: string, rating: number | null): boolean {

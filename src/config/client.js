@@ -160,3 +160,142 @@ document.getElementById("btn-export-csv").addEventListener("click", async () => 
 });
 
 loadConfig();
+
+// Tags live on items, so edits here update both libraries rather than config.json.
+const configTagsList = document.getElementById("config-tags-list");
+const configTagsStatus = document.getElementById("config-tags-status");
+const btnRefreshConfigTags = document.getElementById("btn-refresh-config-tags");
+let configTagsBusy = false;
+
+function configTagPickerHex(color) {
+  if (!color) return "#6366f1";
+  const probe = document.createElement("span");
+  probe.style.color = color;
+  document.body.appendChild(probe);
+  const rgb = parseColor(getComputedStyle(probe).color);
+  probe.remove();
+  return rgb ? "#" + [rgb.r, rgb.g, rgb.b].map((channel) =>
+    Math.round(channel).toString(16).padStart(2, "0"),
+  ).join("") : "#6366f1";
+}
+
+function renderConfigTagRow(tag) {
+  const row = document.createElement("form");
+  row.className = "config-tag-row";
+  row.innerHTML = `
+    <div class="config-tag-preview"></div>
+    <input type="text" value="${esc(tag.name)}" aria-label="${esc(t("Tag name"))}" required />
+    <label class="config-tag-color">${esc(t("Tag color"))}<input type="color" aria-label="${esc(t("Pick a custom color"))}" /></label>
+    <label class="config-tag-color"><input type="checkbox" />${esc(t("No color"))}</label>
+    <button class="btn btn-small btn-primary" type="submit">${esc(t("💾 Save"))}</button>
+    <button class="btn btn-small btn-danger" type="button" data-delete>${esc(t("🗑 Delete"))}</button>
+  `;
+  const nameInput = row.querySelector('input[type="text"]');
+  const colorInput = row.querySelector('input[type="color"]');
+  const noColorInput = row.querySelector('input[type="checkbox"]');
+  const preview = row.querySelector(".config-tag-preview");
+  let selectedColor = tag.color;
+  colorInput.value = configTagPickerHex(selectedColor);
+  noColorInput.checked = !selectedColor;
+
+  function updatePreview() {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip" + (selectedColor ? " tag-chip--colored" : "");
+    chip.textContent = nameInput.value.trim() || tag.name;
+    if (selectedColor) {
+      chip.style.setProperty("--tag-color", selectedColor);
+      chip.style.setProperty("--tag-fg", contrastFg(selectedColor));
+    }
+    preview.replaceChildren(chip);
+  }
+  nameInput.addEventListener("input", updatePreview);
+  colorInput.addEventListener("input", () => {
+    selectedColor = colorInput.value;
+    noColorInput.checked = false;
+    updatePreview();
+  });
+  noColorInput.addEventListener("change", () => {
+    selectedColor = noColorInput.checked ? null : colorInput.value;
+    updatePreview();
+  });
+  row.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveConfigTag(row, tag.name, { newName: nameInput.value.trim(), color: selectedColor });
+  });
+  row.querySelector("[data-delete]").addEventListener("click", () => {
+    if (confirm(t('Delete tag "{tag}" from all Results and Downloaded items? This cannot be undone.', { tag: tag.name }))) {
+      saveConfigTag(row, tag.name, null);
+    }
+  });
+  updatePreview();
+  return row;
+}
+
+function renderConfigTagsEmpty() {
+  configTagsList.innerHTML = `<p class="empty-state">${esc(t("No tags yet. Add a tag to an item in Results or Downloaded."))}</p>`;
+}
+
+async function loadConfigTags() {
+  if (configTagsBusy) return;
+  configTagsBusy = true;
+  btnRefreshConfigTags.disabled = true;
+  configTagsList.setAttribute("aria-busy", "true");
+  try {
+    const res = await fetch("/api/config/tags");
+    if (!res.ok) throw new Error(t("Failed to load tags"));
+    const data = await res.json();
+    configTagsList.replaceChildren(...data.tags.map(renderConfigTagRow));
+    if (!data.tags.length) renderConfigTagsEmpty();
+    configTagsStatus.textContent = "";
+  } catch (err) {
+    showStatus(configTagsStatus, err.message, true);
+  } finally {
+    configTagsBusy = false;
+    btnRefreshConfigTags.disabled = false;
+    configTagsList.setAttribute("aria-busy", "false");
+  }
+}
+
+async function saveConfigTag(row, name, replacement) {
+  if (configTagsBusy) return;
+  configTagsBusy = true;
+  btnRefreshConfigTags.disabled = true;
+  const controls = Array.from(configTagsList.querySelectorAll("input, button"));
+  controls.forEach((control) => { control.disabled = true; });
+  configTagsList.setAttribute("aria-busy", "true");
+  try {
+    const res = await fetch("/api/config/tags", {
+      method: replacement ? "PATCH" : "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, ...replacement }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(t(data.error || "Failed to update tag"));
+    if (replacement) {
+      row.replaceWith(renderConfigTagRow(data.tags.find((tag) =>
+        tag.name.toLowerCase() === replacement.newName.toLowerCase(),
+      )));
+    } else {
+      row.remove();
+      if (!data.tags.length) renderConfigTagsEmpty();
+    }
+    resultsTagFilter.replaceFilter(name, replacement?.newName);
+    downloadedTagFilter.replaceFilter(name, replacement?.newName);
+    allResultsKnownTags = data.tags;
+    allKnownTags = data.tags;
+    resultsTagFilter.setKnownTags(data.tags);
+    downloadedTagFilter.setKnownTags(data.tags);
+    await Promise.all([loadResults(), loadDownloadedItems()]);
+    showStatus(configTagsStatus, t(replacement ? "Tag updated across Results and Downloaded." : "Tag deleted from Results and Downloaded."), false);
+  } catch (err) {
+    showStatus(configTagsStatus, err.message, true);
+  } finally {
+    controls.forEach((control) => { control.disabled = false; });
+    configTagsBusy = false;
+    btnRefreshConfigTags.disabled = false;
+    configTagsList.setAttribute("aria-busy", "false");
+  }
+}
+
+btnRefreshConfigTags.addEventListener("click", loadConfigTags);
+loadConfigTags();

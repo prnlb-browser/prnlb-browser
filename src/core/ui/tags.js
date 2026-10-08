@@ -190,6 +190,13 @@ function createTagFilterControl({ selectEl, wrapEl, clearBtnEl, onChange }) {
     getActiveFilters() {
       return activeFilters;
     },
+    replaceFilter(name, replacement) {
+      const key = name.toLowerCase();
+      activeFilters = [...new Set(activeFilters.flatMap((filter) =>
+        filter === key ? (replacement ? [replacement.toLowerCase()] : []) : [filter],
+      ))];
+      render();
+    },
   };
 }
 
