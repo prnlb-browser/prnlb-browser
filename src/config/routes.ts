@@ -37,7 +37,10 @@ export const handleConfigRoutes: RouteHandler = async ({ req, res, url, method, 
   }
 
   if (url.pathname === "/api/config" && method === "PUT") {
-    app.saveConfig(await readJson<Config>(req));
+    const config = await readJson<Config>(req);
+    // LAN sharing has its own validated lifecycle endpoint.
+    config.lanSharing = app.loadConfig().lanSharing;
+    app.saveConfig(config);
     json(res, { message: "Config saved" });
     return true;
   }

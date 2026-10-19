@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Downloaded library</title><link rel="stylesheet" href="/sharing.css"><script src="/sharing.js" defer></script></head>
+<body><main><h1>Downloaded library</h1><p>Browse, play, or download files from your desktop. Playback depends on your browser’s supported formats.</p>
+<div class="filters">
+  <input id="search" type="search" placeholder="Search titles, cast, files, or tags" aria-label="Search library">
+  <select id="actress" aria-label="Filter by actress"><option value="">All actresses</option><option value="fav">★ Fav actresses</option></select>
+  <select id="tags" multiple size="1" aria-label="Filter by tags" title="Select one or more tags"></select>
+  <select id="sort-by" aria-label="Sort by"><option value="fileBirthtimeMs">File creation date</option><option value="fileName">File name</option><option value="fileSizeBytes">File size</option><option value="starring">Cast</option><option value="aiRating">Rate</option></select>
+  <select id="sort-dir" aria-label="Sort direction"><option value="desc">DESC</option><option value="asc">ASC</option></select>
+</div>
+<p id="status" role="status">Loading…</p><section id="library"></section><dialog id="player"><button id="close" autofocus>Close player</button><h2 id="playing"></h2><video controls playsinline></video><p>If this format cannot play here, download it and open it in a compatible player.</p></dialog></main></body></html>

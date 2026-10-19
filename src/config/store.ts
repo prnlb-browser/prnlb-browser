@@ -15,6 +15,7 @@ export function getDefaultConfig(): Config {
     screenTime: { enabled: true },
     duplicateHiding: { enabled: true, preferredQuality: "1080p" },
     mcp: { enabled: false },
+    lanSharing: { enabled: false, port: 3001, username: "share", accessKey: "" },
   };
 }
 
@@ -37,6 +38,7 @@ export class ConfigStore {
         screenTime: { ...defaultConfig.screenTime, ...parsed.screenTime },
         duplicateHiding: { ...defaultConfig.duplicateHiding, ...parsed.duplicateHiding },
         mcp: { ...defaultConfig.mcp, ...parsed.mcp },
+        lanSharing: { ...defaultConfig.lanSharing!, ...parsed.lanSharing },
       } as Config;
     } catch {
       return getDefaultConfig();

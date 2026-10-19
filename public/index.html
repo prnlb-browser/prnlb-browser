@@ -157,6 +157,25 @@
         <div id="config-mcp-status" class="status-msg" role="status" aria-live="polite"></div>
       </div>
       <div class="card">
+        <h2>Local network sharing</h2>
+        <p class="card-description">Share a read-only Downloaded library with devices on your network. Keep this app running. HTTP sharing is intended for a trusted local network; do not forward this port to the internet.</p>
+        <div class="form-row">
+          <label for="sharing-enabled">Enable LAN sharing</label>
+          <label class="toggle" title="Enable LAN sharing">
+            <input type="checkbox" id="sharing-enabled" role="switch" />
+            <span class="slider" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="form-row"><label for="sharing-port">Port</label><input type="number" id="sharing-port" min="1024" max="65535" value="3001" /></div>
+        <div class="form-row"><label for="sharing-username">Username</label><input type="text" id="sharing-username" autocomplete="username" value="share" /></div>
+        <div class="form-row"><label for="sharing-key">Access key (password)</label><input type="text" id="sharing-key" autocomplete="off" placeholder="Generated when saved" /></div>
+        <p class="card-description">On the other device, open an address below. Sign in with the username and access key shown here. Allow incoming connections through your firewall if prompted.</p>
+        <button id="sharing-save" class="btn btn-primary">Save sharing settings</button>
+        <button id="sharing-refresh" class="btn btn-secondary">Refresh addresses</button>
+        <div id="sharing-addresses"></div>
+        <div id="sharing-status" class="status-msg" role="status" aria-live="polite"></div>
+      </div>
+      <div class="card">
         <h2>Actions</h2>
         <div class="actions">
           <button id="btn-export-csv" class="btn btn-secondary">📥 Export Topics CSV</button>

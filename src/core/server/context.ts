@@ -6,6 +6,8 @@ import { createDownloadedStore, type DownloadedStore } from "../../downloaded/st
 import { createActressStore, type ActressStore } from "../../actresses/store.js";
 import { UsageStore } from "../usage.js";
 
+import { DownloadedSharing } from "../../downloaded/lan-server.js";
+
 export interface CrawlState {
   isRunning: boolean;
   lastProgress: CrawlProgress | null;
@@ -14,6 +16,7 @@ export interface CrawlState {
 }
 
 export class AppContext {
+  readonly sharing = new DownloadedSharing(this);
   readonly configStore: ConfigStore;
   private readonly usageStore: UsageStore;
   readonly crawl: CrawlState = {

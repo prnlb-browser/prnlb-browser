@@ -75,6 +75,21 @@ function applyDownloadedFilterSort(
 }
 
 export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, method, app }) => {
+  if (url.pathname === "/api/downloaded/sharing" && method === "GET") {
+    json(res, app.sharing.status());
+    return true;
+  }
+  if (url.pathname === "/api/downloaded/sharing" && method === "PUT") {
+    try {
+      await app.sharing.configure(await readJson<unknown>(req));
+      const { enabled, port, username, accessKey } = app.sharing.status();
+      app.saveConfig({ ...app.loadConfig(), lanSharing: { enabled, port, username, accessKey } });
+      json(res, app.sharing.status());
+    } catch (error) {
+      json(res, { error: error instanceof Error ? error.message : "Unable to update sharing" }, 400);
+    }
+    return true;
+  }
   const store = app.getDownloadedStore();
 
   if (url.pathname === "/api/downloaded" && method === "GET") {

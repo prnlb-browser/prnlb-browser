@@ -32,5 +32,11 @@
   },
   "mcp": {
     "enabled": false
+  },
+  "lanSharing": {
+    "enabled": false,
+    "port": 3001,
+    "username": "share",
+    "accessKey": ""
   }
 }

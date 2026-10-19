@@ -34,12 +34,15 @@ export interface ServerOptions {
   port?: number;
 }
 
-export function startServer(options: ServerOptions = {}): Promise<ServerInfo> {
+export async function startServer(options: ServerOptions = {}): Promise<ServerInfo> {
   const staticDir = options.staticDir ?? path.resolve(__dirname, "../../../../public");
   const userDataDir = options.userDataDir ?? process.cwd();
   const app = new AppContext(staticDir, userDataDir);
   const mcpEndpoint = createMcpEndpoint(app);
-  app.loadConfig();
+  const config = app.loadConfig();
+  if (config.lanSharing) {
+    try { await app.sharing.configure(config.lanSharing); } catch (error) { console.error(error); }
+  }
   console.log("✅ Config loaded from", app.configStore.path);
 
   const server = http.createServer(async (req, res) => {
@@ -71,6 +74,7 @@ export function startServer(options: ServerOptions = {}): Promise<ServerInfo> {
       console.log(`\n🌐 Server running at http://localhost:${actualPort}`);
       resolve({ server, port: actualPort, app });
     });
-    server.on("error", reject);
+    server.on("close", () => app.sharing.close());
+    server.on("error", (error) => { app.sharing.close(); reject(error); });
   });
 }

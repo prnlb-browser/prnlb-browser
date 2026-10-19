@@ -955,3 +955,40 @@ if (downloadedSortDir) {
     if (currentFolder) loadDownloadedItems();
   });
 }
+
+
+// LAN controls use a separate endpoint so desktop configuration saves cannot
+// accidentally expose the management API or overwrite sharing credentials.
+async function loadDownloadedSharing(save = false) {
+  const button = document.getElementById("sharing-save");
+  const status = document.getElementById("sharing-status");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/downloaded/sharing", save ? {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: document.getElementById("sharing-enabled").checked,
+        port: Number(document.getElementById("sharing-port").value),
+        username: document.getElementById("sharing-username").value,
+        accessKey: document.getElementById("sharing-key").value }),
+    } : undefined);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Unable to load sharing settings");
+    document.getElementById("sharing-enabled").checked = data.enabled;
+    document.getElementById("sharing-port").value = data.port;
+    document.getElementById("sharing-username").value = data.username;
+    document.getElementById("sharing-key").value = data.accessKey;
+    const addresses = document.getElementById("sharing-addresses");
+    addresses.replaceChildren();
+    for (const url of data.urls) {
+      const row = document.createElement("p");
+      row.textContent = url;
+      addresses.appendChild(row);
+    }
+    showStatus(status, data.error || (data.running ? "Sharing is running." : "Sharing is off."), !!data.error);
+  } catch (error) {
+    showStatus(status, error.message, true);
+  } finally { button.disabled = false; }
+}
+document.getElementById("sharing-save").addEventListener("click", () => loadDownloadedSharing(true));
+document.getElementById("sharing-refresh").addEventListener("click", () => loadDownloadedSharing());
+loadDownloadedSharing();

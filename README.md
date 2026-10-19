@@ -38,6 +38,7 @@
 - **🧠 Deduplication** — Safe to re‑run: already‑scraped topics and previously scanned files are skipped automatically
 - **🖥️ Desktop App** — Native macOS / Windows / Linux builds available (powered by Electron)
 - **🔌 Embedded MCP Server** — Optionally expose local tools for crawling, searching, organizing items, analysing scaled screenshots, and managing actresses
+- **🌐 Local Network HTTP Server** — Optionally share a read-only Downloaded library with other devices to browse, play, and download files using a username and access key
 
 ---
 
@@ -73,6 +74,12 @@ the app's loopback HTTP server. Screenshot tools return MCP image content scaled
 to a maximum dimension of 600 pixels by default; `every`, `offset`, and `limit`
 can be used to sample large screenshot sets.
 
+Local network sharing is disabled by default. Enable it under **Config → Local
+network sharing** and save, then open a displayed HTTP address on another device
+and sign in with the shown username and access key. Keep the app running; playback
+depends on browser format support. Use a trusted local network and do not forward
+the sharing port to the internet.
+
 A credentials-free `config.template.json` is bundled with the app so the
 defaults are present on first launch; the actual `config.json` (with any
 credentials you enter) is created and stored only inside Electron's user
@@ -99,7 +106,7 @@ ETH  — 0x87c7CB3d62Bc70A19638A01064B2028fB89E37BF
 
 This is an **unofficial third‑party tool** and is not affiliated with, endorsed by, or connected to pornolab.net in any way. The author is not responsible for how you use this software.
 
-**No telemetry, no tracking.** The app does not collect any usage metrics, analytics, or personal data. All scraped information is stored **locally** on your machine and never leaves it. Your credentials and database stay entirely under your control.
+**No telemetry, no tracking.** The app does not collect any usage metrics, analytics, or personal data. All scraped information is stored **locally** on your machine; optional MCP and local network sharing provide access when enabled. Your credentials and database stay entirely under your control.
 
 ---
 

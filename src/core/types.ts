@@ -15,6 +15,7 @@ export interface Config {
   screenTime: { enabled: boolean };
   duplicateHiding: { enabled: boolean; preferredQuality: "1080p" | "2160p" | "720p" };
   mcp: { enabled: boolean };
+  lanSharing?: { enabled: boolean; port: number; username: string; accessKey: string };
 }
 
 export type ItemRef =
