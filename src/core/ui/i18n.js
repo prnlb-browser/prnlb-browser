@@ -2,6 +2,27 @@
 
 const UI_TRANSLATIONS = {
   ru: {
+    "Language, Screen Time, and MCP save automatically. Other Save buttons apply only to their own panel.": "Язык, учет времени и MCP сохраняются автоматически. Остальные кнопки сохранения применяют изменения только в своей панели.",
+    "Changing language saves your choice in this browser and reloads the app. Save other panels first to keep your edits.": "Изменение языка сохраняет выбор в этом браузере и перезагружает приложение. Сначала сохраните остальные панели, чтобы не потерять изменения.",
+    "Changes save automatically and apply to subsequent MCP requests. No restart is required.": "Изменения сохраняются автоматически и применяются к последующим запросам MCP. Перезапуск не требуется.",
+
+    "Save forums and pages here before starting. Start Crawl uses saved settings and does not save changes in other panels.": "Перед запуском сохраните здесь форумы и число страниц. Сканирование использует сохраненные настройки и не сохраняет изменения в других панелях.",
+    "Actions": "Действия",
+    "Save credentials": "Сохранить учетные данные",
+    "Save duplicate settings": "Сохранить настройки дубликатов",
+    "Save request delays": "Сохранить задержки запросов",
+    "Save cache settings": "Сохранить настройки кэша",
+    "Save crawl settings": "Сохранить настройки сканирования",
+    "Settings saved.": "Настройки сохранены.",
+    "Settings are still loading. Please try again.": "Настройки еще загружаются. Попробуйте еще раз.",
+    "Save crawl settings before starting.": "Перед запуском сохраните настройки сканирования.",
+
+    "Saved credentials and delays apply to new crawl and search operations. Running operations keep their current settings.": "Сохраненные учетные данные и задержки применяются к новым операциям сканирования и поиска. Текущие операции сохраняют свои настройки.",
+    "The saved limit applies to subsequent screenshot requests. Cache cleanup runs when a screenshot is cached.": "Сохраненный лимит применяется к последующим запросам скриншотов. Очистка кэша выполняется при сохранении скриншота в кэш.",
+    "Saved preferences apply to future crawls. Saving does not reprocess existing results.": "Сохраненные настройки применяются к будущим сканированиям. Сохранение не обрабатывает существующие результаты заново.",
+    "Rename tags, change their colors, or delete them across Results and Downloaded. Use each row’s Save or Delete button to apply its changes. Add tags to items in either tab.": "Переименовывайте теги, меняйте цвета или удаляйте их в результатах и загрузках. Применяйте изменения кнопкой сохранения или удаления в соответствующей строке. Добавляйте теги к элементам в любой из этих вкладок.",
+    "Save failed": "Не удалось сохранить настройки",
+
     "Pornolab.net forum scraper": "Парсер форума Pornolab.net",
     "prnlb-browser — Pornolab Scraper": "prnlb-browser — парсер Pornolab",
     "Config": "Настройки",

@@ -1,14 +1,15 @@
 const forumsList = document.getElementById("forums-list");
 const btnAddForum = document.getElementById("btn-add-forum");
-const btnSaveConfig = document.getElementById("btn-save-config");
 const btnClearHiddenResults = document.getElementById("btn-clear-hidden-results");
 const btnClearTurboImageHostCookies = document.getElementById("btn-clear-turboimagehost-cookies");
 const screenTimeIndicator = document.getElementById("screen-time-indicator");
 const screenTimeEnabledToggle = document.getElementById("cfg-screen-time-enabled");
 const configStatus = document.getElementById("config-status");
+let savedCrawlSettings = null;
+let configSaveQueue = Promise.resolve();
 
 function updateScreenTimeVisibility() {
-  screenTimeIndicator.hidden = !screenTimeEnabledToggle.checked;
+  screenTimeIndicator.hidden = !(config?.screenTime?.enabled ?? true);
 }
 
 function renderForums() {
@@ -52,30 +53,47 @@ function fillForm() {
   document.getElementById("cfg-mcp-enabled").checked = config.mcp?.enabled ?? false;
   document.getElementById("cfg-mcp-endpoint").textContent = `${window.location.origin}/mcp`;
   renderForums();
+  savedCrawlSettings = JSON.stringify(collectConfigPanel("crawl"));
 }
 
-function collectForm() {
-  config.credentials.username = document.getElementById("cfg-username").value;
-  config.credentials.password = document.getElementById("cfg-password").value;
-  config.pagesToScan = parseInt(document.getElementById("cfg-pages").value, 10) || 2;
-  config.headless = document.getElementById("cfg-headless").checked;
-  config.delay = {
-    min: parseInt(document.getElementById("cfg-delay-min").value, 10) || 2000,
-    max: parseInt(document.getElementById("cfg-delay-max").value, 10) || 5000,
-  };
-  config.screenshotCache = {
-    maxSizeMB: Math.max(0, parseInt(document.getElementById("cfg-cache-max-size").value, 10) || 0),
-  };
-  config.screenTime = {
-    enabled: document.getElementById("cfg-screen-time-enabled").checked,
-  };
-  config.duplicateHiding = {
-    enabled: document.getElementById("cfg-duplicate-hiding-enabled").checked,
-    preferredQuality: document.getElementById("cfg-duplicate-hiding-quality").value,
-  };
-  config.mcp = {
-    enabled: document.getElementById("cfg-mcp-enabled").checked,
-  };
+function collectConfigPanel(panel) {
+  switch (panel) {
+    case "credentials":
+      return { credentials: {
+        username: document.getElementById("cfg-username").value,
+        password: document.getElementById("cfg-password").value,
+      } };
+    case "screen-time":
+      return { screenTime: { enabled: screenTimeEnabledToggle.checked } };
+    case "duplicates":
+      return { duplicateHiding: {
+        enabled: document.getElementById("cfg-duplicate-hiding-enabled").checked,
+        preferredQuality: document.getElementById("cfg-duplicate-hiding-quality").value,
+      } };
+    case "delay":
+      return { delay: {
+        min: parseInt(document.getElementById("cfg-delay-min").value, 10) || 2000,
+        max: parseInt(document.getElementById("cfg-delay-max").value, 10) || 5000,
+      } };
+    case "cache":
+      return { screenshotCache: {
+        maxSizeMB: Math.max(0, parseInt(document.getElementById("cfg-cache-max-size").value, 10) || 0),
+      } };
+    case "mcp":
+      return { mcp: { enabled: document.getElementById("cfg-mcp-enabled").checked } };
+    case "crawl":
+      return {
+        forums: config.forums.map((forum) => ({ ...forum })),
+        pagesToScan: parseInt(document.getElementById("cfg-pages").value, 10) || 2,
+        headless: document.getElementById("cfg-headless").checked,
+      };
+    default:
+      throw new Error("Unknown settings panel");
+  }
+}
+
+function hasUnsavedCrawlSettings() {
+  return !savedCrawlSettings || JSON.stringify(collectConfigPanel("crawl")) !== savedCrawlSettings;
 }
 
 async function loadConfig() {
@@ -95,23 +113,68 @@ btnAddForum.addEventListener("click", () => {
   renderForums();
 });
 
-document.getElementById("cfg-headless").addEventListener("change", collectForm);
-screenTimeEnabledToggle.addEventListener("change", updateScreenTimeVisibility);
-
-btnSaveConfig.addEventListener("click", async () => {
-  collectForm();
-  try {
+// Read the latest saved settings and replace only this panel's fields. Serialize
+// saves so two panels saved together cannot overwrite each other's changes.
+async function saveConfigPanel(panel) {
+  if (!config) throw new Error(t("Settings are still loading. Please try again."));
+  const patch = collectConfigPanel(panel);
+  const save = configSaveQueue.then(async () => {
+    const latest = await fetch("/api/config");
+    if (!latest.ok) throw new Error(t("Failed to load config"));
+    const saved = await latest.json();
     const res = await fetch("/api/config", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
+      body: JSON.stringify({ ...saved, ...patch }),
     });
-    if (!res.ok) throw new Error("Save failed");
-    showStatus(configStatus, t("Config saved!"), false);
-  } catch (err) {
-    showStatus(configStatus, err.message, true);
-  }
-});
+    if (!res.ok) throw new Error(t("Save failed"));
+    if (panel === "screen-time") {
+      config.screenTime = patch.screenTime;
+      updateScreenTimeVisibility();
+    }
+    if (panel === "mcp") config.mcp = patch.mcp;
+    if (panel === "crawl") savedCrawlSettings = JSON.stringify(patch);
+  });
+  configSaveQueue = save.catch(() => {});
+  await save;
+}
+
+for (const panel of ["credentials", "duplicates", "delay", "cache", "crawl"]) {
+  const button = document.getElementById(`btn-save-${panel}`);
+  const status = document.getElementById(`config-${panel}-status`);
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      await saveConfigPanel(panel);
+      showStatus(status, t("Settings saved."), false);
+    } catch (err) {
+      showStatus(status, err.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+for (const [panel, inputId, field] of [
+  ["screen-time", "cfg-screen-time-enabled", "screenTime"],
+  ["mcp", "cfg-mcp-enabled", "mcp"],
+]) {
+  const control = document.getElementById(inputId);
+  const status = document.getElementById(`config-${panel}-status`);
+  control.addEventListener("change", async () => {
+    const previous = config?.[field]?.enabled ?? (panel === "screen-time");
+    control.disabled = true;
+    try {
+      await saveConfigPanel(panel);
+      showStatus(status, t("Settings saved."), false);
+    } catch (err) {
+      control.checked = previous;
+      showStatus(status, err.message, true);
+    } finally {
+      control.disabled = false;
+    }
+  });
+}
 
 btnClearHiddenResults.addEventListener("click", async () => {
   if (!confirm(t("Are you sure you want to delete ALL hidden topics from the database? This cannot be undone."))) return;
@@ -159,7 +222,6 @@ document.getElementById("btn-export-csv").addEventListener("click", async () => 
   }
 });
 
-loadConfig();
 
 // Tags live on items, so edits here update both libraries rather than config.json.
 const configTagsList = document.getElementById("config-tags-list");
@@ -186,7 +248,7 @@ function renderConfigTagRow(tag) {
     <div class="config-tag-preview"></div>
     <input type="text" value="${esc(tag.name)}" aria-label="${esc(t("Tag name"))}" required />
     <label class="config-tag-color">${esc(t("Tag color"))}<input type="color" aria-label="${esc(t("Pick a custom color"))}" /></label>
-    <label class="config-tag-color"><input type="checkbox" />${esc(t("No color"))}</label>
+    <label class="config-tag-color"><span class="toggle"><input type="checkbox" role="switch" /><span class="slider" aria-hidden="true"></span></span>${esc(t("No color"))}</label>
     <button class="btn btn-small btn-primary" type="submit">${esc(t("💾 Save"))}</button>
     <button class="btn btn-small btn-danger" type="button" data-delete>${esc(t("🗑 Delete"))}</button>
   `;

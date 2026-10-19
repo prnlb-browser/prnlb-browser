@@ -230,6 +230,8 @@ textarea { resize: vertical; min-height: 5rem; }
   border-radius: 50%;
   transition: 0.3s;
 }
+.toggle input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 3px; }
+.toggle input:disabled + .slider { opacity: 0.5; cursor: default; }
 .toggle input:checked + .slider { background: var(--accent); }
 .toggle input:checked + .slider::before { transform: translateX(20px); }
 

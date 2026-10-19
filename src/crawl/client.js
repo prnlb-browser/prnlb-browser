@@ -49,20 +49,13 @@ function setRunning(running) {
 }
 
 btnStart.addEventListener("click", async () => {
-  collectForm();
-  // Save config first
-  await fetch("/api/config", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
-  });
-
-  progressLog.textContent = "";
-  progressBarContainer.hidden = true;
-  progressBar.style.width = "0%";
   setRunning(true);
-
   try {
+    if (hasUnsavedCrawlSettings()) throw new Error(t("Save crawl settings before starting."));
+    progressLog.textContent = "";
+    progressBarContainer.hidden = true;
+    progressBar.style.width = "0%";
+
     const res = await fetch("/api/crawl", { method: "POST" });
     const data = await res.json();
     if (data.error) {

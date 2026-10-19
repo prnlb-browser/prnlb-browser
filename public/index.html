@@ -27,6 +27,18 @@
 
     <!-- Config Tab -->
     <section id="tab-config" class="tab-content active">
+      <p class="card-description">Language, Screen Time, and MCP save automatically. Other Save buttons apply only to their own panel.</p>
+      <div class="card">
+        <h2>Language</h2>
+        <p class="card-description">Changing language saves your choice in this browser and reloads the app. Save other panels first to keep your edits.</p>
+        <div class="form-row">
+          <label for="cfg-language">Interface language</label>
+          <select id="cfg-language">
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+          </select>
+        </div>
+      </div>
       <div class="card">
         <h2>Credentials</h2>
         <div class="form-row">
@@ -37,15 +49,9 @@
           <label>Password</label>
           <input type="password" id="cfg-password" placeholder="••••••" />
         </div>
-      </div>
-      <div class="card">
-        <h2>Language</h2>
-        <div class="form-row">
-          <label for="cfg-language">Interface language</label>
-          <select id="cfg-language">
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-          </select>
+        <div class="actions">
+          <button id="btn-save-credentials" class="btn btn-primary" type="button">Save credentials</button>
+          <span id="config-credentials-status" class="status-msg" role="status" aria-live="polite"></span>
         </div>
       </div>
       <div class="card">
@@ -54,8 +60,8 @@
         <div class="form-row">
           <label for="cfg-screen-time-enabled">Enable screen time tracking</label>
           <label class="toggle" title="Enable screen time tracking">
-            <input type="checkbox" id="cfg-screen-time-enabled" checked />
-            <span class="slider"></span>
+            <input type="checkbox" id="cfg-screen-time-enabled" role="switch" checked />
+            <span class="slider" aria-hidden="true"></span>
           </label>
         </div>
         <div class="usage-summary"><span>Last 14 days</span><strong id="usage-stats-total">00:00:00</strong></div>
@@ -67,15 +73,33 @@
           </div>
           <div id="usage-chart-bars" class="usage-chart-bars" role="list"></div>
         </div>
+        <div id="config-screen-time-status" class="status-msg" role="status" aria-live="polite"></div>
+      </div>
+      <div class="card">
+        <h2>Request Delay (ms)</h2>
+        <p class="card-description">Saved credentials and delays apply to new crawl and search operations. Running operations keep their current settings.</p>
+        <div class="form-row">
+          <label>Min delay</label>
+          <input type="number" id="cfg-delay-min" min="500" max="30000" value="2000" />
+        </div>
+        <div class="form-row">
+          <label>Max delay</label>
+          <input type="number" id="cfg-delay-max" min="500" max="30000" value="5000" />
+        </div>
+        <div class="actions">
+          <button id="btn-save-delay" class="btn btn-primary" type="button">Save request delays</button>
+          <span id="config-delay-status" class="status-msg" role="status" aria-live="polite"></span>
+        </div>
       </div>
       <div class="card">
         <h2>Duplicate Topics</h2>
         <p class="card-description">When a crawl finds the same video in multiple qualities with the same duration, hide versions that do not match your preferred quality.</p>
+        <p class="card-description">Saved preferences apply to future crawls. Saving does not reprocess existing results.</p>
         <div class="form-row">
           <label for="cfg-duplicate-hiding-enabled">Automatically hide duplicate qualities</label>
           <label class="toggle" title="Automatically hide duplicate qualities">
-            <input type="checkbox" id="cfg-duplicate-hiding-enabled" checked />
-            <span class="slider"></span>
+            <input type="checkbox" id="cfg-duplicate-hiding-enabled" role="switch" checked />
+            <span class="slider" aria-hidden="true"></span>
           </label>
         </div>
         <div class="form-row">
@@ -86,35 +110,21 @@
             <option value="720p">720p</option>
           </select>
         </div>
-      </div>
-      <div class="card">
-        <h2>Request Delay (ms)</h2>
-        <div class="form-row">
-          <label>Min delay</label>
-          <input type="number" id="cfg-delay-min" min="500" max="30000" value="2000" />
-        </div>
-        <div class="form-row">
-          <label>Max delay</label>
-          <input type="number" id="cfg-delay-max" min="500" max="30000" value="5000" />
+        <div class="actions">
+          <button id="btn-save-duplicates" class="btn btn-primary" type="button">Save duplicate settings</button>
+          <span id="config-duplicates-status" class="status-msg" role="status" aria-live="polite"></span>
         </div>
       </div>
       <div class="card">
         <h2>Screenshot Cache</h2>
+        <p class="card-description">The saved limit applies to subsequent screenshot requests. Cache cleanup runs when a screenshot is cached.</p>
         <div class="form-row">
           <label>Max cache size (MB) <span class="help-icon" title="Screenshots shown in the preview carousel are cached on disk. Oldest cached files are deleted first once this limit is exceeded. Set to 0 to disable caching.">?</span></label>
           <input type="number" id="cfg-cache-max-size" min="0" max="10000" step="10" value="200" />
         </div>
-      </div>
-      <div class="card">
-        <h2>Model Context Protocol</h2>
-        <p class="card-description">Allow local MCP clients to use prnlb-browser tools. The MCP endpoint is available only on this computer.</p>
-        <div class="form-row">
-          <label for="cfg-mcp-enabled">Enable embedded MCP server</label>
-          <input type="checkbox" id="cfg-mcp-enabled" />
-        </div>
-        <div class="form-row">
-          <label>Endpoint</label>
-          <code id="cfg-mcp-endpoint"></code>
+        <div class="actions">
+          <button id="btn-save-cache" class="btn btn-primary" type="button">Save cache settings</button>
+          <span id="config-cache-status" class="status-msg" role="status" aria-live="polite"></span>
         </div>
       </div>
       <div class="card">
@@ -124,16 +134,35 @@
       </div>
       <div class="card" id="config-tags-panel">
         <h2>Available Tags</h2>
-        <p class="card-description">Rename tags, change their colors, or delete them across Results and Downloaded. Each row saves immediately. Add tags to items in either tab.</p>
+        <p class="card-description">Rename tags, change their colors, or delete them across Results and Downloaded. Use each row’s Save or Delete button to apply its changes. Add tags to items in either tab.</p>
         <button id="btn-refresh-config-tags" class="btn btn-small" type="button">🔄 Refresh</button>
         <div id="config-tags-list" class="config-tags-list" aria-busy="true"></div>
         <div id="config-tags-status" class="status-msg" role="status" aria-live="polite"></div>
       </div>
-      <div class="actions">
-        <button id="btn-save-config" class="btn btn-primary">💾 Save Config</button>
-        <button id="btn-export-csv" class="btn btn-secondary">📥 Export Topics CSV</button>
-        <button id="btn-clear-hidden-results" class="btn btn-danger">🗑 Clear Hidden Results</button>
-        <span id="config-status" class="status-msg"></span>
+      <div class="card">
+        <h2>Model Context Protocol</h2>
+        <p class="card-description">Allow local MCP clients to use prnlb-browser tools. The MCP endpoint is available only on this computer.</p>
+        <p class="card-description">Changes save automatically and apply to subsequent MCP requests. No restart is required.</p>
+        <div class="form-row">
+          <label for="cfg-mcp-enabled">Enable embedded MCP server</label>
+          <label class="toggle" title="Enable embedded MCP server">
+            <input type="checkbox" id="cfg-mcp-enabled" role="switch" />
+            <span class="slider" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Endpoint</label>
+          <code id="cfg-mcp-endpoint"></code>
+        </div>
+        <div id="config-mcp-status" class="status-msg" role="status" aria-live="polite"></div>
+      </div>
+      <div class="card">
+        <h2>Actions</h2>
+        <div class="actions">
+          <button id="btn-export-csv" class="btn btn-secondary">📥 Export Topics CSV</button>
+          <button id="btn-clear-hidden-results" class="btn btn-danger">🗑 Clear Hidden Results</button>
+        </div>
+        <div id="config-status" class="status-msg" role="status" aria-live="polite"></div>
       </div>
     </section>
 
@@ -141,6 +170,7 @@
     <section id="tab-crawl" class="tab-content">
       <div class="card">
         <h2>Crawl Pornolab Updates</h2>
+        <p class="card-description">Save forums and pages here before starting. Start Crawl uses saved settings and does not save changes in other panels.</p>
         <div id="forums-list"></div>
         <button id="btn-add-forum" class="btn btn-small">+ Add forum</button>
         <div class="form-row" style="margin-top:1rem">
@@ -149,6 +179,8 @@
         </div>
         <input type="checkbox" id="cfg-headless" checked hidden />
         <div class="actions" style="margin-top:1rem">
+          <button id="btn-save-crawl" class="btn btn-primary" type="button">Save crawl settings</button>
+          <span id="config-crawl-status" class="status-msg" role="status" aria-live="polite"></span>
           <button id="btn-start" class="btn btn-primary btn-large">▶ Start Crawl</button>
         </div>
       </div>
