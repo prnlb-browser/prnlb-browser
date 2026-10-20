@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in — Downloaded library</title><link rel="stylesheet" href="/sharing.css"></head>
+<body><main class="sign-in">
+<h1>Downloaded library</h1>
+<p>Sign in with the username and access key shown under Config → Local network sharing in the desktop app.</p>
+<!--login-error-->
+<form method="post" action="/login">
+<label for="username">Username</label>
+<input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+<label for="password">Password (access key)</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required>
+<button type="submit">Sign in</button>
+</form>
+</main></body></html>

@@ -77,7 +77,10 @@ can be used to sample large screenshot sets.
 
 Local network sharing is disabled by default. Enable it under **Config → Local
 network sharing** and save, then open a displayed HTTP address on another device
-and sign in with the shown username and access key. Keep the app running; playback
+and sign in with the shown username and access key. Browsers that block cookies
+automatically use a private session URL, valid for up to 12 hours. Treat that URL
+like a password; changing sharing credentials or stopping sharing ends the session.
+Keep the app running; playback
 depends on browser format support. Use a trusted local network and do not forward
 the sharing port to the internet.
 

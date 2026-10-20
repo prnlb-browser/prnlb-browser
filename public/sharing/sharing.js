@@ -1,3 +1,4 @@
+const sharingBase = location.pathname.match(/^\/session\/[^/]+\//)?.[0] || "/";
 const library = document.getElementById("library");
 const status = document.getElementById("status");
 const search = document.getElementById("search");
@@ -22,7 +23,7 @@ function render(items) {
     const card = document.createElement("article");
     if (item.hasImage) {
       const image = document.createElement("img");
-      image.src = `/items/${item.id}/image`;
+      image.src = `${sharingBase}items/${item.id}/image`;
       image.alt = "";
       image.loading = "lazy";
       card.append(image);
@@ -35,12 +36,12 @@ function render(items) {
     play.textContent = "Play";
     play.addEventListener("click", () => {
       document.getElementById("playing").textContent = item.title || item.fileName;
-      video.src = `/items/${item.id}/file`;
+      video.src = `${sharingBase}items/${item.id}/file`;
       player.showModal();
       video.play().catch(() => {});
     });
     const download = document.createElement("a");
-    download.href = `/items/${item.id}/file?download=1`;
+    download.href = `${sharingBase}items/${item.id}/file?download=1`;
     download.textContent = "Download";
     card.append(title, detail, play, download);
     library.append(card);
@@ -58,7 +59,8 @@ async function loadItems() {
   params.set("sortDir", sortDir.value);
   status.textContent = "Loading…";
   try {
-    const response = await fetch(`/library?${params}`);
+    const response = await fetch(`${sharingBase}library?${params}`);
+    if (response.status === 401) { window.location.replace("/login"); return; }
     if (!response.ok) throw new Error("Could not load the library.");
     render(await response.json());
   } catch (error) {
@@ -67,7 +69,8 @@ async function loadItems() {
 }
 
 async function loadFilters() {
-  const response = await fetch("/filters");
+  const response = await fetch(`${sharingBase}filters`);
+  if (response.status === 401) { window.location.replace("/login"); throw new Error("Please sign in again."); }
   if (!response.ok) throw new Error("Could not load library filters.");
   const filters = await response.json();
   for (const actress of filters.actresses || []) {

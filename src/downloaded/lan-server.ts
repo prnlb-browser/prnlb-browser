@@ -2,12 +2,19 @@ import * as http from "node:http";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { AppContext } from "../core/server/context.js";
 import type { Actress, DownloadedItem } from "../core/types.js";
-import { json, serveStatic } from "../core/server/http.js";
+import { json, readBody, serveStatic } from "../core/server/http.js";
 import { enrichItemsWithFileStats } from "./scanner.js";
 import { getKnownTags } from "../core/known-tags.js";
+
+const SESSION_COOKIE = "downloaded_session";
+const SESSION_SECONDS = 12 * 60 * 60;
+
+function secretsEqual(a: string, b: string): boolean {
+  return timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
+}
 
 const SHARE_SORT_FIELDS = new Set(["fileName", "fileSizeBytes", "starring", "fileBirthtimeMs", "aiRating"]);
 
@@ -104,6 +111,7 @@ async function streamFile(req: http.IncomingMessage, res: http.ServerResponse, f
 export class DownloadedSharing {
   private server: http.Server | null = null;
   private settings: SharingSettings = { enabled: false, port: 3001, username: "share", accessKey: "" };
+  private sessionSecret = randomBytes(32);
   private error: string | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   constructor(private readonly app: AppContext) {}
@@ -136,7 +144,10 @@ export class DownloadedSharing {
       accessKey: value.accessKey || this.settings.accessKey || randomBytes(24).toString("hex"),
     };
     if (next.enabled && this.server?.listening && next.port === this.settings.port) {
-      if (next.accessKey !== this.settings.accessKey) this.server.closeAllConnections();
+      if (next.accessKey !== this.settings.accessKey || next.username !== this.settings.username) {
+        this.sessionSecret = randomBytes(32);
+        this.server.closeAllConnections();
+      }
       this.settings = next; this.error = null; return;
     }
     if (!next.enabled) { this.close(); this.settings = next; this.error = null; return; }
@@ -157,23 +168,101 @@ export class DownloadedSharing {
   }
 
   close(): void {
+    this.sessionSecret = randomBytes(32);
     this.server?.close();
     this.server?.closeAllConnections();
     this.server = null;
   }
 
+  private validSession(token: string): boolean {
+    const match = /^(\d+)\.([a-f0-9]{32})\.([a-f0-9]{64})$/.exec(token);
+    if (!match || Number(match[1]) <= Date.now()) return false;
+    return secretsEqual(match[3], createHmac("sha256", this.sessionSecret).update(`${match[1]}.${match[2]}`).digest("hex"));
+  }
+
+  private loginPage(res: http.ServerResponse, message = "", status = 200): void {
+    res.setHeader("Referrer-Policy", "same-origin");
+    const template = fs.readFileSync(path.join(this.app.staticDir, "sharing", "login.html"), "utf8");
+    // Messages are fixed server text, never request input.
+    res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(template.replace("<!--login-error-->", message ? `<p class="login-error" role="alert">${message}</p>` : ""));
+  }
+
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "no-referrer");
+    // Native form POSTs can send Origin: null under no-referrer, breaking sign-in.
+    // Keep same-origin form metadata while withholding referrers from other sites.
+    res.setHeader("Referrer-Policy", "same-origin");
     res.setHeader("Content-Security-Policy", "default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const cookie = (req.headers.cookie ?? "").split(";").map(value => value.trim())
+      .find(value => value.startsWith(`${SESSION_COOKIE}=`))?.slice(SESSION_COOKIE.length + 1) ?? "";
+    const sessionValid = this.validSession(cookie);
+
+    if (url.pathname === "/sharing.css" && (req.method === "GET" || req.method === "HEAD")) {
+      if (!serveStatic(res, path.join(this.app.staticDir, "sharing"), "/sharing.css")) json(res, { error: "Not found" }, 404);
+      return;
+    }
+    if (url.pathname === "/login") {
+      if (req.method === "GET" || req.method === "HEAD") {
+        if (url.searchParams.has("check")) {
+          if (sessionValid) { res.writeHead(303, { Location: "/" }); res.end(); return; }
+          const fallbackToken = url.searchParams.get("check") ?? "";
+          if (this.validSession(fallbackToken)) {
+            res.setHeader("Referrer-Policy", "no-referrer");
+            res.writeHead(303, { Location: `/session/${fallbackToken}/` }); res.end(); return;
+          }
+          this.loginPage(res, "Your sign-in has expired. Please sign in again.");
+        } else {
+          this.loginPage(res);
+        }
+        return;
+      }
+      if (req.method === "POST") {
+        if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}`) {
+          this.loginPage(res, "Sign-in was blocked because the browser sent an invalid origin. Reopen the local network address from the desktop app and try again.", 403); return;
+        }
+        if (req.headers["content-type"]?.split(";")[0].trim().toLowerCase() !== "application/x-www-form-urlencoded") {
+          this.loginPage(res, "The browser sent an unsupported sign-in request. Please use the form below.", 415); return;
+        }
+        const form = new URLSearchParams(await readBody(req));
+        if (!secretsEqual(form.get("username") ?? "", this.settings.username) ||
+            !secretsEqual(form.get("password") ?? "", this.settings.accessKey)) {
+          this.loginPage(res, "Incorrect username or password. Please try again.", 401); return;
+        }
+        const payload = `${Date.now() + SESSION_SECONDS * 1000}.${randomBytes(16).toString("hex")}`;
+        const signature = createHmac("sha256", this.sessionSecret).update(payload).digest("hex");
+        res.setHeader("Referrer-Policy", "no-referrer");
+        res.writeHead(303, {
+          Location: `/login?check=${payload}.${signature}`,
+          "Set-Cookie": `${SESSION_COOKIE}=${payload}.${signature}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_SECONDS}; Expires=${new Date(Number(payload.split(".")[0])).toUTCString()}`,
+        });
+        res.end(); return;
+      }
+      res.setHeader("Allow", "GET, HEAD, POST"); json(res, { error: "Method not allowed" }, 405); return;
+    }
+    // Cookie-free browsers carry a signed, expiring session in a local URL prefix.
+    const sessionPath = /^\/session\/([^/]+)(\/.*)$/.exec(url.pathname);
+    const pathSessionValid = !!sessionPath && this.validSession(sessionPath[1]);
+    if (sessionPath) {
+      res.setHeader("Referrer-Policy", "no-referrer");
+      if (pathSessionValid) url.pathname = sessionPath[2];
+      else if (req.method === "GET" && sessionPath[2] === "/") {
+        this.loginPage(res, "Your sign-in has expired. Please sign in again.", 401); return;
+      }
+    }
     const supplied = req.headers.authorization ?? "";
     const expected = `Basic ${Buffer.from(`${this.settings.username}:${this.settings.accessKey}`).toString("base64")}`;
-    if (!timingSafeEqual(createHash("sha256").update(supplied).digest(), createHash("sha256").update(expected).digest())) {
-      res.writeHead(401, { "WWW-Authenticate": 'Basic realm="Downloaded library", charset="UTF-8"' }); res.end("Sign in with the username and access key from the desktop app."); return;
+    if (!sessionValid && !pathSessionValid && !secretsEqual(supplied, expected)) {
+      if (req.method === "GET" && url.pathname === "/") {
+        res.writeHead(303, { Location: "/login" }); res.end();
+      } else {
+        json(res, { error: "Sign in with the username and access key from the desktop app." }, 401);
+      }
+      return;
     }
     if (req.method !== "GET" && req.method !== "HEAD") { res.setHeader("Allow", "GET, HEAD"); json(res, { error: "Read-only library" }, 405); return; }
-    const url = new URL(req.url ?? "/", "http://localhost");
     if (["/", "/sharing.js", "/sharing.css"].includes(url.pathname)) {
       if (!serveStatic(res, path.join(this.app.staticDir, "sharing"), url.pathname === "/" ? "/index.html" : url.pathname)) json(res, { error: "Not found" }, 404);
       return;
