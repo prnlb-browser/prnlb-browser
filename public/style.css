@@ -135,6 +135,17 @@ h1 {
   vertical-align: middle;
 }
 
+/* Separate panel Save actions from the Config fields above them. */
+#tab-config .actions:has(> .btn-primary),
+#sharing-save {
+  margin-top: 1.5rem;
+}
+
+#sharing-addresses {
+  min-height: 0;
+  resize: none;
+}
+
 /* --- Config tag management --- */
 .config-tags-list { display: grid; gap: 0.75rem; margin: 1rem 0; }
 .config-tag-row {
@@ -450,9 +461,10 @@ textarea { resize: vertical; min-height: 5rem; }
   min-width: 0;
   max-width: 100%;
 }
-.result-card:has(.popup-menu.open) { z-index: 50; }
 .result-card:hover { border-color: var(--text-muted); }
 .result-card:has(.result-thumb:hover) { z-index: 60; }
+/* An open menu must also float above previews in neighboring cards. */
+.result-card:has(.popup-menu.open) { z-index: 70; }
 .result-card--hidden { opacity: 0.45; border-color: var(--warning); }
 .result-card--fav {
   background: #3d3415 !important;
@@ -568,7 +580,6 @@ textarea { resize: vertical; min-height: 5rem; }
 .result-actions-menu-wrapper {
   position: relative;
   display: inline-flex;
-  z-index: 10;
 }
 
 .result-actions-menu-wrapper:has(.popup-menu.open) {
@@ -1348,3 +1359,28 @@ textarea { resize: vertical; min-height: 5rem; }
   border-bottom: 1px dotted var(--text-muted);
 }
 .cast-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Actress dialog name shortcuts and picture favorite. */
+#actress-image-wrap { position: relative; }
+#actress-modal-favorite { top: auto; bottom: 4px; right: 4px; width: 30px; height: 30px; font-size: 1.3rem; }
+.actress-name-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+.actress-name-label { display: contents; }
+.actress-name-label > label { grid-column: 1 / -1; }
+.actress-name-label label, .actress-other-names > label { color: var(--text-muted); font-size: 0.9rem; }
+.actress-name-actions { display: flex; gap: 0.25rem; align-items: center; }
+.actress-name-actions .btn { padding: 0.2rem; min-width: 28px; }
+.actress-name-row input { min-width: 0; }
+.actress-alias-row { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+.actress-alias-row .actress-name-actions { flex: 0 0 120px; margin-top: 0; }
+.actress-alias-row > span { flex: 1; min-width: 0; padding: 0.5rem 0.75rem; overflow-wrap: anywhere; }
+.actress-add-name-row { display: flex; gap: 0.5rem; margin: 0.5rem 0 0 128px; }
+.actress-add-name-row input { min-width: 0; }
+@media (max-width: 480px) {
+  .actress-name-row { grid-template-columns: 96px minmax(0, 1fr) auto auto; }
+  .actress-alias-row .actress-name-actions { flex-basis: 96px; }
+  .actress-add-name-row { margin-left: 104px; }
+}

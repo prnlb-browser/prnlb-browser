@@ -5,7 +5,6 @@ const btnClearTurboImageHostCookies = document.getElementById("btn-clear-turboim
 const screenTimeIndicator = document.getElementById("screen-time-indicator");
 const screenTimeEnabledToggle = document.getElementById("cfg-screen-time-enabled");
 const configStatus = document.getElementById("config-status");
-let savedCrawlSettings = null;
 let configSaveQueue = Promise.resolve();
 
 function updateScreenTimeVisibility() {
@@ -51,9 +50,13 @@ function fillForm() {
   document.getElementById("cfg-duplicate-hiding-enabled").checked = config.duplicateHiding?.enabled ?? true;
   document.getElementById("cfg-duplicate-hiding-quality").value = config.duplicateHiding?.preferredQuality ?? "1080p";
   document.getElementById("cfg-mcp-enabled").checked = config.mcp?.enabled ?? false;
-  document.getElementById("cfg-mcp-endpoint").textContent = `${window.location.origin}/mcp`;
+  document.getElementById("cfg-mcp-port").value = config.mcp?.port ?? 3002;
+  updateMcpEndpoint();
   renderForums();
-  savedCrawlSettings = JSON.stringify(collectConfigPanel("crawl"));
+}
+
+function updateMcpEndpoint() {
+  document.getElementById("cfg-mcp-endpoint").value = `http://localhost:${config.mcp?.port ?? 3002}/mcp`;
 }
 
 function collectConfigPanel(panel) {
@@ -80,7 +83,7 @@ function collectConfigPanel(panel) {
         maxSizeMB: Math.max(0, parseInt(document.getElementById("cfg-cache-max-size").value, 10) || 0),
       } };
     case "mcp":
-      return { mcp: { enabled: document.getElementById("cfg-mcp-enabled").checked } };
+      return { mcp: { enabled: document.getElementById("cfg-mcp-enabled").checked, port: Number(document.getElementById("cfg-mcp-port").value) } };
     case "crawl":
       return {
         forums: config.forums.map((forum) => ({ ...forum })),
@@ -90,10 +93,6 @@ function collectConfigPanel(panel) {
     default:
       throw new Error("Unknown settings panel");
   }
-}
-
-function hasUnsavedCrawlSettings() {
-  return !savedCrawlSettings || JSON.stringify(collectConfigPanel("crawl")) !== savedCrawlSettings;
 }
 
 async function loadConfig() {
@@ -127,19 +126,21 @@ async function saveConfigPanel(panel) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...saved, ...patch }),
     });
-    if (!res.ok) throw new Error(t("Save failed"));
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || t("Save failed"));
+    }
     if (panel === "screen-time") {
       config.screenTime = patch.screenTime;
       updateScreenTimeVisibility();
     }
-    if (panel === "mcp") config.mcp = patch.mcp;
-    if (panel === "crawl") savedCrawlSettings = JSON.stringify(patch);
+    if (panel === "mcp") { config.mcp = patch.mcp; updateMcpEndpoint(); }
   });
   configSaveQueue = save.catch(() => {});
   await save;
 }
 
-for (const panel of ["credentials", "duplicates", "delay", "cache", "crawl"]) {
+for (const panel of ["credentials", "duplicates", "delay", "cache"]) {
   const button = document.getElementById(`btn-save-${panel}`);
   const status = document.getElementById(`config-${panel}-status`);
   button.addEventListener("click", async () => {
@@ -164,6 +165,7 @@ for (const [panel, inputId, field] of [
   control.addEventListener("change", async () => {
     const previous = config?.[field]?.enabled ?? (panel === "screen-time");
     control.disabled = true;
+    if (panel === "mcp") document.getElementById("cfg-mcp-port").disabled = true;
     try {
       await saveConfigPanel(panel);
       showStatus(status, t("Settings saved."), false);
@@ -172,9 +174,24 @@ for (const [panel, inputId, field] of [
       showStatus(status, err.message, true);
     } finally {
       control.disabled = false;
+      if (panel === "mcp") document.getElementById("cfg-mcp-port").disabled = false;
     }
   });
 }
+
+document.getElementById("cfg-mcp-port").addEventListener("change", async () => {
+  const control = document.getElementById("cfg-mcp-port");
+  const toggle = document.getElementById("cfg-mcp-enabled");
+  control.disabled = true;
+  toggle.disabled = true;
+  try {
+    await saveConfigPanel("mcp");
+    showStatus(document.getElementById("config-mcp-status"), t("Settings saved."), false);
+  } catch (err) {
+    control.value = config.mcp?.port ?? 3002;
+    showStatus(document.getElementById("config-mcp-status"), err.message, true);
+  } finally { control.disabled = false; toggle.disabled = false; }
+});
 
 btnClearHiddenResults.addEventListener("click", async () => {
   if (!confirm(t("Are you sure you want to delete ALL hidden topics from the database? This cannot be undone."))) return;

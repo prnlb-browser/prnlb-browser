@@ -51,7 +51,7 @@ function setRunning(running) {
 btnStart.addEventListener("click", async () => {
   setRunning(true);
   try {
-    if (hasUnsavedCrawlSettings()) throw new Error(t("Save crawl settings before starting."));
+    await saveConfigPanel("crawl");
     progressLog.textContent = "";
     progressBarContainer.hidden = true;
     progressBar.style.width = "0%";

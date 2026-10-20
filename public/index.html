@@ -151,8 +151,12 @@
           </label>
         </div>
         <div class="form-row">
-          <label>Endpoint</label>
-          <code id="cfg-mcp-endpoint"></code>
+          <label for="cfg-mcp-port">Port</label>
+          <input type="number" id="cfg-mcp-port" min="1024" max="65535" />
+        </div>
+        <div class="form-row">
+          <label for="cfg-mcp-endpoint">Endpoint</label>
+          <input type="text" id="cfg-mcp-endpoint" readonly />
         </div>
         <div id="config-mcp-status" class="status-msg" role="status" aria-live="polite"></div>
       </div>
@@ -169,10 +173,13 @@
         <div class="form-row"><label for="sharing-port">Port</label><input type="number" id="sharing-port" min="1024" max="65535" value="3001" /></div>
         <div class="form-row"><label for="sharing-username">Username</label><input type="text" id="sharing-username" autocomplete="username" value="share" /></div>
         <div class="form-row"><label for="sharing-key">Access key (password)</label><input type="text" id="sharing-key" autocomplete="off" placeholder="Generated when saved" /></div>
-        <p class="card-description">On the other device, open an address below. Sign in with the username and access key shown here. Allow incoming connections through your firewall if prompted.</p>
+        <div class="form-row">
+          <label for="sharing-addresses">Endpoint</label>
+          <textarea id="sharing-addresses" rows="1" readonly></textarea>
+        </div>
+        <p class="card-description">On the other device, open an endpoint above. Sign in with the username and access key shown here. Allow incoming connections through your firewall if prompted.</p>
         <button id="sharing-save" class="btn btn-primary">Save sharing settings</button>
         <button id="sharing-refresh" class="btn btn-secondary">Refresh addresses</button>
-        <div id="sharing-addresses"></div>
         <div id="sharing-status" class="status-msg" role="status" aria-live="polite"></div>
       </div>
       <div class="card">
@@ -189,7 +196,7 @@
     <section id="tab-crawl" class="tab-content">
       <div class="card">
         <h2>Crawl Pornolab Updates</h2>
-        <p class="card-description">Save forums and pages here before starting. Start Crawl uses saved settings and does not save changes in other panels.</p>
+        <p class="card-description">Start Crawl saves the forums and pages below before starting. Changes in other panels are saved separately.</p>
         <div id="forums-list"></div>
         <button id="btn-add-forum" class="btn btn-small">+ Add forum</button>
         <div class="form-row" style="margin-top:1rem">
@@ -198,8 +205,6 @@
         </div>
         <input type="checkbox" id="cfg-headless" checked hidden />
         <div class="actions" style="margin-top:1rem">
-          <button id="btn-save-crawl" class="btn btn-primary" type="button">Save crawl settings</button>
-          <span id="config-crawl-status" class="status-msg" role="status" aria-live="polite"></span>
           <button id="btn-start" class="btn btn-primary btn-large">▶ Start Crawl</button>
         </div>
       </div>
@@ -542,7 +547,7 @@
 
   <!-- Actress: New/Edit Modal -->
   <div id="actress-modal" class="modal-overlay" hidden>
-    <div class="modal-content" style="max-width: 520px">
+    <div class="modal-content" style="max-width: 640px">
       <div class="modal-header">
         <span id="actress-modal-title" class="modal-title">🎭 New actress</span>
         <button id="actress-modal-close" class="btn btn-small modal-close-btn">✕</button>
@@ -551,6 +556,7 @@
         <input type="hidden" id="actress-id" />
         <div id="actress-image-row" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem">
           <div id="actress-image-wrap" style="width:100px;height:100px;background:#111;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#666;flex-shrink:0">
+            <button id="actress-modal-favorite" class="actress-tile-fav" type="button" aria-pressed="false" title="Add to favorites">☆</button>
             <span id="actress-image-placeholder">🎭</span>
             <img id="actress-image-img" alt="" style="width:100%;height:100%;object-fit:cover;display:none" />
           </div>
@@ -566,17 +572,20 @@
             </div>
           </div>
         </div>
-        <div class="form-row">
-          <label>Name</label>
+        <div class="form-row actress-name-row">
+          <div class="actress-name-label">
+            <label for="actress-name">Name</label>
+            <div id="actress-primary-name-actions" class="actress-name-actions"></div>
+          </div>
           <input type="text" id="actress-name" placeholder="Primary name" />
           <button class="btn btn-small" id="actress-lookup-open" type="button" title="Fetch actress data from Boobpedia">🌐</button>
           <button class="btn btn-small" id="actress-lookup-open-iafd" type="button" title="Fetch actress data from IAFD">🌐</button>
         </div>
-        <div class="form-row" style="align-items:flex-start">
+        <div class="actress-other-names">
           <label>Other names</label>
-          <div style="flex:1">
+          <div>
             <div id="actress-other-names-list"></div>
-            <div style="display:flex;gap:0.5rem;margin-top:0.5rem">
+            <div class="actress-add-name-row">
               <input type="text" id="actress-other-name-input" placeholder="Add alternate name..." style="flex:1" />
               <button id="actress-add-other-name" class="btn btn-small" type="button">+ Add</button>
             </div>

@@ -6,16 +6,14 @@ const UI_TRANSLATIONS = {
     "Changing language saves your choice in this browser and reloads the app. Save other panels first to keep your edits.": "Изменение языка сохраняет выбор в этом браузере и перезагружает приложение. Сначала сохраните остальные панели, чтобы не потерять изменения.",
     "Changes save automatically and apply to subsequent MCP requests. No restart is required.": "Изменения сохраняются автоматически и применяются к последующим запросам MCP. Перезапуск не требуется.",
 
-    "Save forums and pages here before starting. Start Crawl uses saved settings and does not save changes in other panels.": "Перед запуском сохраните здесь форумы и число страниц. Сканирование использует сохраненные настройки и не сохраняет изменения в других панелях.",
+    "Start Crawl saves the forums and pages below before starting. Changes in other panels are saved separately.": "При запуске сканирования сохраняются указанные ниже форумы и число страниц. Изменения в других панелях сохраняются отдельно.",
     "Actions": "Действия",
     "Save credentials": "Сохранить учетные данные",
     "Save duplicate settings": "Сохранить настройки дубликатов",
     "Save request delays": "Сохранить задержки запросов",
     "Save cache settings": "Сохранить настройки кэша",
-    "Save crawl settings": "Сохранить настройки сканирования",
     "Settings saved.": "Настройки сохранены.",
     "Settings are still loading. Please try again.": "Настройки еще загружаются. Попробуйте еще раз.",
-    "Save crawl settings before starting.": "Перед запуском сохраните настройки сканирования.",
 
     "Saved credentials and delays apply to new crawl and search operations. Running operations keep their current settings.": "Сохраненные учетные данные и задержки применяются к новым операциям сканирования и поиска. Текущие операции сохраняют свои настройки.",
     "The saved limit applies to subsequent screenshot requests. Cache cleanup runs when a screenshot is cached.": "Сохраненный лимит применяется к последующим запросам скриншотов. Очистка кэша выполняется при сохранении скриншота в кэш.",

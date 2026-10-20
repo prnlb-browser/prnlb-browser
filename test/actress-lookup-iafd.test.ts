@@ -45,6 +45,14 @@ describe("iafd parseSearchMatches", () => {
 });
 
 describe("iafd parsePersonPage", () => {
+  it("ignores the no-known-aliases placeholder while preserving real names", () => {
+    for (const placeholder of ["No known aliases", "NO KNOWN ALIASES", "No known aliases."]) {
+      const html = `<p class="bioheading">Performer AKA</p><div class="biodata"><em>${placeholder}</em></div>`;
+      assert.deepEqual(parsePersonPage(html).otherNames, []);
+      assert.deepEqual(parsePersonPage(html.replace("</div>", "<br>Real Alias</div>")).otherNames, ["Real Alias"]);
+    }
+  });
+
   it("extracts the primary name, AKA list, and headshot", () => {
     const { name, otherNames, imageUrl } = parsePersonPage(PERSON_PAGE_HTML);
     assert.equal(name, "Megan Murkovski");

@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { CrawlProgress, DownloadedItem } from "../core/types.js";
 import type { AppContext } from "../core/server/context.js";
 import type { SseEmitter } from "../core/server/http.js";
+import { isMissingPathError } from "../core/fs-paths.js";
 import { launchChromium } from "../core/browser.js";
 import { fetchTopicDetails, searchPornolab } from "../search/scraper.js";
 import { downloadAndCacheImage } from "../core/images/downloader.js";
@@ -86,15 +87,22 @@ function refreshExistingFileSizes(app: AppContext, emit: SseEmitter): void {
   let refreshed = 0;
   let removed = 0;
   for (const item of store.getAll()) {
-    const size = diskSize(item.filePath);
-    if (size === null) {
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(item.filePath);
+    } catch (error) {
+      // An inaccessible file is not evidence that it was deleted.
+      if (!isMissingPathError(error)) throw error;
       if (item.cachedImage) {
         const imagePath = path.join(path.dirname(item.filePath), ".images", item.cachedImage);
         try { if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath); } catch {}
       }
       store.deleteById(item.id);
       removed++;
-    } else if (size !== item.size) {
+      continue;
+    }
+    const size = formatFileSize(stat.size);
+    if (size !== item.size) {
       store.updateItem(item.id, { size });
       refreshed++;
     }
@@ -113,12 +121,24 @@ export async function scanDownloadedFolder(
   clean: boolean,
   emit: SseEmitter,
 ): Promise<void> {
+  let folderMissing = false;
+  try {
+    if (!fs.statSync(folderPath).isDirectory()) throw new Error("folderPath is not a directory");
+  } catch (error) {
+    if (clean || !isMissingPathError(error)) throw error;
+    folderMissing = true;
+  }
   const store = app.getDownloadedStore();
   if (clean) {
     store.clearAll();
     emit({ phase: "purge", message: "Purged old downloaded data" });
   } else {
     refreshExistingFileSizes(app, emit);
+  }
+
+  if (folderMissing) {
+    emit({ phase: "done", message: "Folder no longer exists — removed missing files", items: store.getAll() });
+    return;
   }
 
   const imagesDir = prepareImagesDirectory(folderPath, clean);

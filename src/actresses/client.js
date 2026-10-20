@@ -343,6 +343,8 @@ const actressNameInput = document.getElementById("actress-name");
 const actressOtherNamesList = document.getElementById("actress-other-names-list");
 const actressOtherNameInput = document.getElementById("actress-other-name-input");
 const actressAddOtherNameBtn = document.getElementById("actress-add-other-name");
+const actressModalFavoriteBtn = document.getElementById("actress-modal-favorite");
+const actressPrimaryNameActions = document.getElementById("actress-primary-name-actions");
 const actressImageWrap = document.getElementById("actress-image-wrap");
 const actressImageImg = document.getElementById("actress-image-img");
 const actressImagePlaceholder = document.getElementById("actress-image-placeholder");
@@ -358,18 +360,67 @@ const actressDeleteBtn = document.getElementById("actress-delete");
 
 let actressModalId = null; // null while the actress hasn't been persisted yet
 let actressModalOtherNames = [];
+let actressModalIsFavorite = false;
 let actressModalCachedImage = null;
 let actressModalPostImage = null; // source URL behind the current cachedImage
 let actressModalPendingImageUrl = null; // remote URL previewed from web search, not yet resolved/downloaded
 let actressModalWasNewRecord = false; // true if this session's record was auto-created (no id when opened)
 let actressModalOriginalPostImage = null; // server postImage at open time, to revert to on cancel
 
+function renderActressModalFavorite() {
+  actressModalFavoriteBtn.textContent = actressModalIsFavorite ? "★" : "☆";
+  actressModalFavoriteBtn.classList.toggle("actress-tile-fav--active", actressModalIsFavorite);
+  const label = t(actressModalIsFavorite ? "Remove from favorites" : "Add to favorites");
+  actressModalFavoriteBtn.title = label;
+  actressModalFavoriteBtn.setAttribute("aria-label", label);
+  actressModalFavoriteBtn.setAttribute("aria-pressed", String(actressModalIsFavorite));
+}
+
+actressModalFavoriteBtn.addEventListener("click", () => {
+  actressModalIsFavorite = !actressModalIsFavorite;
+  renderActressModalFavorite();
+});
+
+function actressNameActionsHtml() {
+  return [["downloaded", "📥", "Open in Downloaded"], ["results", "📊", "Open in Results"], ["search", "🔍", "Search forums"]]
+    .map(([destination, icon, label]) => `<button class="btn btn-small" type="button" data-name-destination="${destination}" title="${esc(t(label))}" aria-label="${esc(t(label))}">${icon}</button>`).join("");
+}
+
+async function searchActressModalName(name, destination) {
+  name = name.trim();
+  if (!name) return;
+  await discardActressModalChanges();
+  if (destination === "downloaded") {
+    downloadedSearchInput.value = name;
+    if (downloadedFilterActress) downloadedFilterActress.value = "";
+    switchToTab("downloaded");
+    await loadDownloadedItems();
+  } else if (destination === "results") {
+    searchInput.value = name;
+    if (filterActress) filterActress.value = "";
+    switchToTab("results");
+  } else if (destination === "search") {
+    switchToTab("search");
+    searchQuery.value = name;
+    await performSearch();
+  }
+}
+
+actressPrimaryNameActions.innerHTML = actressNameActionsHtml();
+actressPrimaryNameActions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-name-destination]");
+  if (button) searchActressModalName(actressNameInput.value, button.dataset.nameDestination);
+});
+
 function renderActressOtherNames() {
   actressOtherNamesList.innerHTML = "";
   actressModalOtherNames.forEach((name, i) => {
     const div = document.createElement("div");
-    div.className = "fav-actress-entry";
-    div.innerHTML = `<span>${esc(name)}</span><button class="btn btn-small btn-danger" data-remove-other-name="${i}" type="button">✕</button>`;
+    div.className = "actress-alias-row";
+    div.innerHTML = `<div class="actress-name-actions">${actressNameActionsHtml()}</div><span>${esc(name)}</span><button class="btn btn-small btn-danger" data-remove-other-name="${i}" type="button">✕</button>`;
+    div.querySelectorAll("[data-name-destination]").forEach((button) => {
+      button.addEventListener("click", () => searchActressModalName(name, button.dataset.nameDestination));
+    });
     div.querySelector("[data-remove-other-name]").addEventListener("click", () => {
       actressModalOtherNames.splice(i, 1);
       renderActressOtherNames();
@@ -427,6 +478,8 @@ function updateActressImagePreview() {
 // creating from an unresolved Cast link.
 function openActressModal(actress, prefillName) {
   actressModalId = actress ? actress.id : null;
+  actressModalIsFavorite = actress?.isFavorite ?? false;
+  renderActressModalFavorite();
   actressModalOtherNames = actress ? actress.otherNames.slice() : [];
   actressModalCachedImage = actress ? actress.cachedImage : null;
   actressModalPostImage = actress ? actress.postImage : null;
@@ -501,7 +554,7 @@ actressModal.addEventListener("click", (e) => {
 });
 
 async function createActressRecord(name, otherNames, postImageUrl) {
-  const body = { name, otherNames };
+  const body = { name, otherNames, isFavorite: actressModalIsFavorite };
   if (postImageUrl) body.postImageUrl = postImageUrl;
   const res = await fetch("/api/actresses", {
     method: "POST",
@@ -609,7 +662,7 @@ actressSaveBtn.addEventListener("click", async () => {
   actressModalStatus.className = "status-msg";
   try {
     if (actressModalId) {
-      const fields = { id: actressModalId, name, otherNames: actressModalOtherNames };
+      const fields = { id: actressModalId, name, otherNames: actressModalOtherNames, isFavorite: actressModalIsFavorite };
       // A web-search photo is only previewed from the internet until now —
       // saving is what actually resolves and downloads a local copy of it.
       if (actressModalPendingImageUrl) fields.postImageUrl = actressModalPendingImageUrl;
@@ -665,7 +718,7 @@ const actressLookupButtons = [
 // becomes the primary name (even if it differs from what's currently in the
 // field); the name it replaces is folded into "other names" alongside any
 // aliases the provider returned, so no name is lost.
-async function applyActressLookupDetails(details) {
+async function applyActressLookupDetails(details, providerId) {
   const previousName = actressNameInput.value.trim();
   if (details.name) actressNameInput.value = details.name;
 
@@ -682,13 +735,17 @@ async function applyActressLookupDetails(details) {
   }
   renderActressOtherNames();
   if (details.imageUrl) {
-    // Preview straight from the source — don't download/persist yet. Save
-    // or an explicit Download/Resolve click resolves it to a local copy.
     actressImageUrlInput.value = details.imageUrl;
     actressModalPendingImageUrl = details.imageUrl;
-    updateActressImagePreview();
-    actressImageStatus.textContent = "Previewing from the web — Save or Download/Resolve to store a local copy";
-    actressImageStatus.className = "status-msg";
+    if (providerId === "iafd") {
+      // IAFD can block direct renderer image loads. Use the downloader's
+      // browser fallback immediately, just as Download / Resolve does.
+      await applyActressImageUrl(details.imageUrl);
+    } else {
+      updateActressImagePreview();
+      actressImageStatus.textContent = "Previewing from the web — Save or Download/Resolve to store a local copy";
+      actressImageStatus.className = "status-msg";
+    }
   }
 }
 
@@ -717,7 +774,7 @@ async function runActressLookup(providerId, providerLabel) {
     const details = await detailsRes.json().catch(() => ({}));
     if (!detailsRes.ok) throw new Error(details.error || "Failed to fetch details");
 
-    await applyActressLookupDetails(details);
+    await applyActressLookupDetails(details, providerId);
     const sourceLink = details.sourceUrl
       ? ` — <a href="${esc(details.sourceUrl)}" target="_blank" rel="noopener noreferrer">view page</a>`
       : "";

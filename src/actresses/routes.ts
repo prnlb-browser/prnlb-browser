@@ -109,7 +109,7 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
   }
 
   if (url.pathname === "/api/actresses" && method === "POST") {
-    const body = await readJson<{ name?: string; otherNames?: unknown; postImageUrl?: string | null; groupId?: number }>(req);
+    const body = await readJson<{ name?: string; otherNames?: unknown; postImageUrl?: string | null; groupId?: number; isFavorite?: boolean }>(req);
     const name = body.name?.trim();
     if (!name) {
       json(res, { error: "name is required" }, 400);
@@ -120,7 +120,11 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
       json(res, { error: "Group not found" }, 404);
       return true;
     }
-    const created = store.insert({ name, otherNames: body.otherNames, postImage: null, cachedImage: null, groupId: body.groupId });
+    if (body.isFavorite !== undefined && typeof body.isFavorite !== "boolean") {
+      json(res, { error: "isFavorite must be a boolean" }, 400);
+      return true;
+    }
+    const created = store.insert({ isFavorite: body.isFavorite, name, otherNames: body.otherNames, postImage: null, cachedImage: null, groupId: body.groupId });
 
     const rawUrl = body.postImageUrl?.trim();
     if (rawUrl) {
@@ -140,6 +144,7 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
       otherNames?: unknown;
       postImageUrl?: string | null;
       groupId?: number;
+      isFavorite?: boolean;
     }>(req);
     const { id } = body;
     if (!id) {
@@ -152,9 +157,16 @@ export const handleActressRoutes: RouteHandler = async ({ req, res, url, method,
       return true;
     }
 
-    const fields: { name?: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; groupId?: number } = {};
+    const fields: { name?: string; otherNames?: unknown; postImage?: string | null; cachedImage?: string | null; groupId?: number; isFavorite?: boolean } = {};
     if ("name" in body && body.name?.trim()) fields.name = body.name.trim();
     if ("otherNames" in body) fields.otherNames = body.otherNames;
+    if ("isFavorite" in body) {
+      if (typeof body.isFavorite !== "boolean") {
+        json(res, { error: "isFavorite must be a boolean" }, 400);
+        return true;
+      }
+      fields.isFavorite = body.isFavorite;
+    }
 
     if ("groupId" in body) {
       if (!Number.isInteger(body.groupId) || !store.getGroupById(body.groupId!)) {

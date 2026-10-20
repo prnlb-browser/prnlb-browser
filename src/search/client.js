@@ -9,6 +9,7 @@ const searchResultsContainer = document.getElementById("search-results-container
 // --- Search ---
 
 let searchForumOptions = [];
+let previousSearchForumSelection = new Set(["-1"]);
 let isSearching = false;
 let lastSearchResults = []; // Store for referencing by index
 let searchDetailGeneration = 0; // Cancel stale detail loading
@@ -64,6 +65,7 @@ async function loadSearchForumOptions() {
     allOpt.textContent = t("Everywhere");
     allOpt.selected = true;
     searchForumFilter.appendChild(allOpt);
+    previousSearchForumSelection = new Set(["-1"]);
     forums.forEach((f) => {
       const opt = document.createElement("option");
       opt.value = String(f.id);
@@ -74,6 +76,35 @@ async function loadSearchForumOptions() {
     console.error("Failed to load search forum options:", err);
   }
 }
+
+// Tracker labels use |- prefixes for children. A plain label is a parent
+// only when the following options actually contain indented children.
+function searchForumDepth(name) {
+  const prefix = name.trimStart().match(/^(?:\|\s*-\s*)+/)?.[0] || "";
+  return (prefix.match(/\|/g) || []).length;
+}
+
+searchForumFilter.addEventListener("change", () => {
+  const options = Array.from(searchForumFilter.options);
+  const selected = new Set(options.filter((option) => option.selected).map((option) => option.value));
+  const added = new Set([...selected].filter((value) => !previousSearchForumSelection.has(value)));
+  if (added.has("-1")) {
+    options.forEach((option) => { option.selected = option.value === "-1"; });
+  } else {
+    if ([...selected].some((value) => value !== "-1")) {
+      options.forEach((option) => { if (option.value === "-1") option.selected = false; });
+    }
+    options.forEach((option, index) => {
+      if (option.value === "-1" || !added.has(option.value)) return;
+      const depth = searchForumDepth(option.textContent);
+      for (let child = index + 1; child < options.length; child++) {
+        if (searchForumDepth(options[child].textContent) <= depth) break;
+        options[child].selected = true;
+      }
+    });
+  }
+  previousSearchForumSelection = new Set(options.filter((option) => option.selected).map((option) => option.value));
+});
 
 function getSelectedSearchForums() {
   const selected = Array.from(searchForumFilter.selectedOptions).map((o) =>

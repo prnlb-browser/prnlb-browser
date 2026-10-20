@@ -70,7 +70,8 @@ platform, server, scraping, image, and renderer functionality lives under
 
 The embedded MCP server is disabled by default. Enable it in the Config tab and
 copy the displayed local `/mcp` endpoint into an MCP client. It listens only on
-the app's loopback HTTP server. Screenshot tools return MCP image content scaled
+its own loopback HTTP server on the configurable port (3002 by default).
+Port changes save automatically and apply immediately. Screenshot tools return MCP image content scaled
 to a maximum dimension of 600 pixels by default; `every`, `offset`, and `limit`
 can be used to sample large screenshot sets.
 

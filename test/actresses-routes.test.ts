@@ -62,12 +62,13 @@ describe("actress routes", () => {
     // POST /api/actresses — create.
     let createdId: number;
     {
-      const { ctx, captured } = makeCtx("POST", "/api/actresses", { name: "Jane Doe", otherNames: ["JD", "Janie"], groupId });
+      const { ctx, captured } = makeCtx("POST", "/api/actresses", { name: "Jane Doe", otherNames: ["JD", "Janie"], groupId, isFavorite: true });
       const handled = await handleActressRoutes(ctx as never);
       assert.equal(handled, true);
       assert.equal(captured.status, 201);
       const body = JSON.parse(captured.body as string);
       assert.equal(body.name, "Jane Doe");
+      assert.equal(body.isFavorite, true);
       assert.deepEqual(body.otherNames, ["JD", "Janie"]);
       createdId = body.id;
     }
@@ -113,11 +114,13 @@ describe("actress routes", () => {
         id: createdId!,
         name: "Jane A. Doe",
         otherNames: ["JD"],
+        isFavorite: false,
       });
       const handled = await handleActressRoutes(ctx as never);
       assert.equal(handled, true);
       const body = JSON.parse(captured.body as string);
       assert.equal(body.name, "Jane A. Doe");
+      assert.equal(body.isFavorite, false);
       assert.deepEqual(body.otherNames, ["JD"]);
     }
 
@@ -125,6 +128,16 @@ describe("actress routes", () => {
       const { ctx, captured } = makeCtx("PATCH", "/api/actresses/item", { id: createdId!, groupId: groupId });
       await handleActressRoutes(ctx as never);
       assert.equal(JSON.parse(captured.body as string).groupId, groupId);
+    }
+
+    // Invalid favorite values must not change a stored favorite.
+    for (const method of ["POST", "PATCH"]) {
+      const { ctx, captured } = makeCtx(method, method === "POST" ? "/api/actresses" : "/api/actresses/item", {
+        id: createdId!, name: "Invalid favorite", isFavorite: "true",
+      });
+      await handleActressRoutes(ctx as never);
+      assert.equal(captured.status, 400);
+      assert.equal(store.getById(createdId!)?.isFavorite, false);
     }
 
     // PATCH on a non-existent id — 404.

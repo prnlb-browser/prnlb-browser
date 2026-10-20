@@ -424,7 +424,7 @@ export class McpEndpoint {
     return true;
   }
 
-  private async closeSessions(): Promise<void> {
+  async closeSessions(): Promise<void> {
     await Promise.all([...this.sessions.values()].map(async ({ server, transport }) => {
       await transport.close().catch(() => {});
       await server.close().catch(() => {});

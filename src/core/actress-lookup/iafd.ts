@@ -86,7 +86,7 @@ export function parsePersonPage(html: string): { name: string | null; otherNames
     ? akaMatch[1]!
         .split(/<br\s*\/?>/i)
         .map((entry) => stripParenthetical(stripTags(entry)))
-        .filter(Boolean)
+        .filter((name) => name.length > 0 && !/^no\s+known\s+aliases\.?$/i.test(name))
     : [];
 
   return { name, otherNames, imageUrl };

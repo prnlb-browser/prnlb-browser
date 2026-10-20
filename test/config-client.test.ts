@@ -19,8 +19,8 @@ function setup() {
   const requests: { url: string; method: string; body?: Config }[] = [];
   const statuses: { text: string; error: boolean }[] = [];
   const context = vm.createContext({
-    config: structuredClone(state.saved), isRunning: false,
-    window: { location: { origin: "http://localhost" } },
+    config: structuredClone(state.saved), isRunning: false, URL,
+    window: { location: { origin: "http://localhost:54526" } },
     document: { getElementById: element },
     t: (text: string) => text,
     showStatus: (_element: unknown, text: string, error: boolean) => statuses.push({ text, error }),
@@ -35,7 +35,7 @@ function setup() {
   vm.runInContext(configSource.slice(0, configSource.indexOf('btnClearHiddenResults.addEventListener')), context);
   vm.runInContext(readFileSync("src/crawl/client.js", "utf8"), context);
   vm.runInContext("fillForm()", context);
-  return { element, requests, state, statuses };
+  return { element, requests, state, statuses, context };
 }
 
 test("each panel saves only its own fields and preserves settings saved elsewhere", async () => {
@@ -56,6 +56,8 @@ test("each panel saves only its own fields and preserves settings saved elsewher
     element("cfg-pages").value = "5";
     if (panel === "screen-time" || panel === "mcp") {
       await element(panel === "screen-time" ? "cfg-screen-time-enabled" : "cfg-mcp-enabled").handlers.change();
+    } else if (panel === "crawl") {
+      await element("btn-start").handlers.click();
     } else {
       await element(`btn-save-${panel}`).handlers.click();
     }
@@ -65,6 +67,29 @@ test("each panel saves only its own fields and preserves settings saved elsewher
     }
     assert.equal(element("screen-time-indicator").hidden, panel === "screen-time");
   }
+});
+
+test("MCP port and endpoint show the dedicated server", () => {
+  const { element } = setup();
+  assert.equal(element("cfg-mcp-port").value, 3002);
+  assert.equal(element("cfg-mcp-endpoint").value, "http://localhost:3002/mcp");
+});
+
+test("MCP port changes save automatically and update the endpoint only on success", async () => {
+  const { element, state, statuses } = setup();
+  element("cfg-mcp-port").value = "4002";
+  await element("cfg-mcp-port").handlers.change();
+  assert.equal(state.saved.mcp.port, 4002);
+  assert.equal(element("cfg-mcp-endpoint").value, "http://localhost:4002/mcp");
+  state.saveOk = false;
+  element("cfg-mcp-port").value = "4003";
+  await element("cfg-mcp-port").handlers.change();
+  assert.equal(state.saved.mcp.port, 4002);
+  assert.equal(element("cfg-mcp-port").value, 4002);
+  assert.equal(element("cfg-mcp-endpoint").value, "http://localhost:4002/mcp");
+  assert.equal(element("cfg-mcp-port").disabled, false);
+  assert.equal(element("cfg-mcp-enabled").disabled, false);
+  assert.equal(statuses.at(-1)?.error, true);
 });
 
 test("simultaneous panel saves preserve both changes", async () => {
@@ -96,20 +121,35 @@ test("failed automatic saves restore the toggles and allow retry", async () => {
   }
 });
 
-test("Start Crawl requires saved crawl settings and never saves other panels", async () => {
+test("Start Crawl saves current crawl settings before starting and preserves other panels", async () => {
+  const { element, requests, state, context } = setup();
+  element("cfg-pages").value = "5";
+  element("cfg-username").value = "unsaved-user";
+  state.saved.downloadedFolder = "/new-folder";
+  vm.runInContext('config.forums = [{ label: "Updated forum", url: "https://example.com/forum" }]', context);
+  await element("btn-start").handlers.click();
+  assert.deepEqual(requests.map(({ url, method }) => [url, method]), [
+    ["/api/config", "GET"], ["/api/config", "PUT"], ["/api/crawl", "POST"],
+  ]);
+  assert.equal(state.saved.credentials.username, "");
+  assert.equal(state.saved.downloadedFolder, "/new-folder");
+  assert.equal(state.saved.pagesToScan, 5);
+  assert.deepEqual(state.saved.forums, [{ label: "Updated forum", url: "https://example.com/forum" }]);
+  assert.equal(element("btn-start").disabled, true);
+});
+
+test("Start Crawl does not start when saving fails and allows retry", async () => {
   const { element, requests, state } = setup();
   element("cfg-pages").value = "5";
+  state.saveOk = false;
   await element("btn-start").handlers.click();
-  assert.equal(requests.length, 0);
-  assert.match(element("progress-log").textContent, /Save crawl settings/);
+  assert.equal(requests.some(({ url }) => url === "/api/crawl"), false);
+  assert.match(element("progress-log").textContent, /Save failed/);
   assert.equal(element("btn-start").disabled, false);
-  await element("btn-save-crawl").handlers.click();
-  requests.length = 0;
-  element("cfg-username").value = "unsaved-user";
+  state.saveOk = true;
   await element("btn-start").handlers.click();
-  assert.deepEqual(requests.map(({ url }) => url), ["/api/crawl"]);
-  assert.equal(state.saved.credentials.username, "");
   assert.equal(state.saved.pagesToScan, 5);
+  assert.equal(requests.at(-1)?.url, "/api/crawl");
 });
 
 test("changing language stores the choice and reloads the app", () => {

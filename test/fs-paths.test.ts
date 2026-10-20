@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { validateFolderPath } from "../src/core/fs-paths.js";
+import { isMissingPathError, validateFolderPath } from "../src/core/fs-paths.js";
 
 describe("validateFolderPath", () => {
   it("rejects empty / non-string / non-absolute paths", () => {
@@ -24,6 +24,17 @@ describe("validateFolderPath", () => {
     const result = validateFolderPath(missing);
     assert.equal(result.ok, false);
     if (!result.ok) assert.match(result.reason, /does not exist/);
+  });
+
+  it("allows missing paths only when explicitly requested for refresh", () => {
+    const missing = path.join(os.tmpdir(), `prnlb-missing-refresh-${Date.now()}`);
+    assert.deepEqual(validateFolderPath(missing, { allowMissing: true }), { ok: true, absolutePath: path.resolve(missing) });
+    assert.equal(validateFolderPath("relative/path", { allowMissing: true }).ok, false);
+    assert.equal(validateFolderPath("/tmp/../missing", { allowMissing: true }).ok, false);
+    assert.equal(isMissingPathError({ code: "ENOENT" }), true);
+    assert.equal(isMissingPathError({ code: "ENOTDIR" }), true);
+    assert.equal(isMissingPathError({ code: "EACCES" }), false);
+    assert.equal(isMissingPathError({ code: "EIO" }), false);
   });
 
   it("rejects paths that exist but are not directories", () => {

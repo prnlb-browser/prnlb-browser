@@ -341,22 +341,7 @@ async function refreshTopicDetails(topicUrl, title, card) {
               updateMetaField(metaDiv, "Duration:", d.duration);
               // Size is preserved automatically since we don't touch it
             }
-            // Update postImage if it changed
-            if (data.data.postImage) {
-              const thumb = card.querySelector(".result-thumb");
-              if (thumb) {
-                thumb.src = data.data.postImage;
-              } else if (!card.querySelector(".result-thumb")) {
-                // Add a thumbnail if there wasn't one
-                const img = document.createElement("img");
-                img.className = "result-thumb";
-                img.src = data.data.postImage;
-                img.alt = "";
-                img.loading = "lazy";
-                img.onerror = function() { this.style.display = "none"; };
-                card.insertBefore(img, card.querySelector(".result-info"));
-              }
-            }
+            if ("postImage" in data.data) updateResultCardPostImage(card, data.data.postImage);
           }
         } else if (data.phase === "error") {
           alert(t("Error: {message}", { message: data.message }));
@@ -528,21 +513,38 @@ function applyResultsEditToCard(topicUrl, item) {
     comments.remove();
   }
 
-  let thumb = card.querySelector(".result-thumb");
-  if (item.postImage) {
-    if (thumb) {
-      thumb.src = item.postImage;
-    } else {
-      thumb = document.createElement("img");
-      thumb.className = "result-thumb";
-      thumb.alt = "";
-      thumb.loading = "lazy";
-      thumb.onerror = function () { this.style.display = "none"; };
-      thumb.src = item.postImage;
-      card.insertBefore(thumb, card.querySelector(".result-info"));
-    }
-  } else if (thumb) {
-    thumb.remove();
+  updateResultCardPostImage(card, item.postImage);
+}
+
+function updateResultCardPostImage(card, postImage) {
+  card.dataset.postImage = postImage || "";
+  const previous = card.querySelector(".result-thumb");
+  // Replace the image node so a failed old preview's display:none and pending
+  // error event cannot hide the newly saved image.
+  if (postImage) {
+    const thumb = document.createElement("img");
+    thumb.className = "result-thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.onerror = function () { this.style.display = "none"; };
+    thumb.src = postImage;
+    if (previous) previous.replaceWith(thumb);
+    else card.insertBefore(thumb, card.querySelector(".result-info"));
+  } else if (previous) {
+    previous.remove();
+  }
+
+  const actions = card.querySelector(".result-actions");
+  const screens = actions?.querySelector("[data-action='screens']");
+  if (postImage && actions && !screens) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-small";
+    button.dataset.action = "screens";
+    button.textContent = t("🖼 Screens");
+    actions.insertBefore(button, actions.querySelector("[data-action='toggle-hide']"));
+  } else if (!postImage && screens) {
+    screens.remove();
   }
 }
 

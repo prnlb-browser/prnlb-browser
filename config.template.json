@@ -31,6 +31,7 @@
     "preferredQuality": "1080p"
   },
   "mcp": {
+    "port": 3002,
     "enabled": false
   },
   "lanSharing": {

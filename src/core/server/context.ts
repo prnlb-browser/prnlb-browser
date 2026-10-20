@@ -6,6 +6,7 @@ import { createDownloadedStore, type DownloadedStore } from "../../downloaded/st
 import { createActressStore, type ActressStore } from "../../actresses/store.js";
 import { UsageStore } from "../usage.js";
 
+import { McpListener } from "../mcp/listener.js";
 import { DownloadedSharing } from "../../downloaded/lan-server.js";
 
 export interface CrawlState {
@@ -16,6 +17,7 @@ export interface CrawlState {
 }
 
 export class AppContext {
+  readonly mcp = new McpListener(this);
   readonly sharing = new DownloadedSharing(this);
   readonly configStore: ConfigStore;
   private readonly usageStore: UsageStore;

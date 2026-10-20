@@ -9,7 +9,7 @@ import * as path from "node:path";
  * - empty / non-string
  * - not absolute (require a rooted path, no `~` or `..` segments)
  * - contains parent traversal (`..` segments)
- * - path does not exist or is not a directory
+ * - path does not exist (unless allowMissing is requested) or is not a directory
  *
  * This guard is used by the Downloaded, Actress, and any other feature that
  * stores or scans a directory chosen via the UI. It is intentionally strict
@@ -21,7 +21,12 @@ export type FolderValidation =
   | { ok: true; absolutePath: string }
   | { ok: false; reason: string };
 
-export function validateFolderPath(raw: unknown): FolderValidation {
+export function isMissingPathError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR");
+}
+
+export function validateFolderPath(raw: unknown, options: { allowMissing?: boolean } = {}): FolderValidation {
   if (typeof raw !== "string" || raw.trim().length === 0) {
     return { ok: false, reason: "folderPath is required" };
   }
@@ -38,7 +43,10 @@ export function validateFolderPath(raw: unknown): FolderValidation {
   let stat: fs.Stats;
   try {
     stat = fs.statSync(trimmed);
-  } catch {
+  } catch (error) {
+    if (options.allowMissing && isMissingPathError(error)) {
+      return { ok: true, absolutePath: path.resolve(trimmed) };
+    }
     return { ok: false, reason: "folderPath does not exist" };
   }
   if (!stat.isDirectory()) {

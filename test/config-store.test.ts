@@ -48,7 +48,7 @@ describe("ConfigStore", () => {
       assert.equal("ai" in loaded, false);
       assert.deepEqual(loaded.screenshotCache, { maxSizeMB: 200 });
       assert.deepEqual(loaded.screenTime, { enabled: true });
-      assert.deepEqual(loaded.mcp, { enabled: false });
+      assert.deepEqual(loaded.mcp, { enabled: false, port: 3002 });
       store.save(loaded);
       assert.equal("ai" in JSON.parse(fs.readFileSync(store.path, "utf-8")), false);
     } finally {

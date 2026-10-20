@@ -173,10 +173,10 @@ export const handleDownloadedRoutes: RouteHandler = async ({ req, res, url, meth
     return true;
   }
 
-  // POST /api/downloaded/scan-incremental — scan only new files
+  // POST /api/downloaded/scan-incremental — remove missing files and scan new files
   if (url.pathname === "/api/downloaded/scan-incremental" && method === "POST") {
     const { folderPath } = await readJson<{ folderPath: string }>(req);
-    const validation = validateFolderPath(folderPath);
+    const validation = validateFolderPath(folderPath, { allowMissing: true });
     if (!validation.ok) {
       json(res, { error: validation.reason }, 400);
       return true;

@@ -14,7 +14,7 @@ export function getDefaultConfig(): Config {
     screenshotCache: { maxSizeMB: 200 },
     screenTime: { enabled: true },
     duplicateHiding: { enabled: true, preferredQuality: "1080p" },
-    mcp: { enabled: false },
+    mcp: { enabled: false, port: 3002 },
     lanSharing: { enabled: false, port: 3001, username: "share", accessKey: "" },
   };
 }

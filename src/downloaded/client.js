@@ -83,7 +83,7 @@ btnSelectFolder.addEventListener("click", async () => {
   await scanFolder(folder, "scan-folder");
 });
 
-// Refresh button — only scan new files
+// Refresh button — remove missing files and scan new files
 btnRefresh.addEventListener("click", async () => {
   if (!currentFolder) return;
   await scanFolder(currentFolder, "scan-incremental");
@@ -109,6 +109,11 @@ async function scanFolder(folderPath, mode) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ folderPath }),
     });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Request failed (${res.status})`);
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -978,12 +983,8 @@ async function loadDownloadedSharing(save = false) {
     document.getElementById("sharing-username").value = data.username;
     document.getElementById("sharing-key").value = data.accessKey;
     const addresses = document.getElementById("sharing-addresses");
-    addresses.replaceChildren();
-    for (const url of data.urls) {
-      const row = document.createElement("p");
-      row.textContent = url;
-      addresses.appendChild(row);
-    }
+    addresses.value = data.urls.join("\n");
+    addresses.rows = Math.max(1, data.urls.length);
     showStatus(status, data.error || (data.running ? "Sharing is running." : "Sharing is off."), !!data.error);
   } catch (error) {
     showStatus(status, error.message, true);

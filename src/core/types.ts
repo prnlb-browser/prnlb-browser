@@ -14,7 +14,7 @@ export interface Config {
   screenshotCache: { maxSizeMB: number };
   screenTime: { enabled: boolean };
   duplicateHiding: { enabled: boolean; preferredQuality: "1080p" | "2160p" | "720p" };
-  mcp: { enabled: boolean };
+  mcp: { enabled: boolean; port?: number };
   lanSharing?: { enabled: boolean; port: number; username: string; accessKey: string };
 }
 
